@@ -3,8 +3,9 @@ setlocal EnableExtensions EnableDelayedExpansion
 
 title Deploy WAS Dashboard Windows Service
 
-:: Optional arg1: bundle URL
-:: Example:
+:: Optional arg1: extracted app folder path or bundle URL
+:: Examples:
+::   deploy-service.bat "C:\Deploy\was-dashboard"
 ::   deploy-service.bat https://github.com/paresh53/websphere-admin-dashboard/releases/latest/download/was-dashboard-windows.zip
 
 set SERVICE_NAME=WASDashboard
@@ -15,8 +16,20 @@ set TMP_ZIP=%TEMP%\was-dashboard-windows.zip
 set WINSW_EXE=%INSTALL_DIR%\WASDashboardService.exe
 set WINSW_XML=%INSTALL_DIR%\WASDashboardService.xml
 
-set BUNDLE_URL=%~1
-if "%BUNDLE_URL%"=="" set BUNDLE_URL=https://github.com/paresh53/websphere-admin-dashboard/releases/latest/download/was-dashboard-windows.zip
+set DEFAULT_BUNDLE_URL=https://github.com/paresh53/websphere-admin-dashboard/releases/latest/download/was-dashboard-windows.zip
+set SOURCE_ARG=%~1
+set SOURCE_MODE=url
+set SOURCE_DIR=
+set BUNDLE_URL=%DEFAULT_BUNDLE_URL%
+if not "%SOURCE_ARG%"=="" (
+    if exist "%SOURCE_ARG%\" (
+        set SOURCE_MODE=folder
+        set SOURCE_DIR=%~f1
+        set BUNDLE_URL=
+    ) else (
+        set BUNDLE_URL=%SOURCE_ARG%
+    )
+)
 set WINSW_URL=https://github.com/winsw/winsw/releases/download/v3.0.0/WinSW-x64.exe
 
 echo.
@@ -26,7 +39,13 @@ echo ============================================================
 echo.
 echo Service Name : %SERVICE_NAME%
 echo Install Dir  : %INSTALL_DIR%
-echo Bundle URL   : %BUNDLE_URL%
+if /I "%SOURCE_MODE%"=="folder" (
+    echo Source Type  : Local folder
+    echo Source Path  : %SOURCE_DIR%
+) else (
+    echo Source Type  : Download URL
+    echo Bundle URL   : %BUNDLE_URL%
+)
 echo.
 
 net session >nul 2>&1
@@ -37,7 +56,6 @@ if errorlevel 1 (
 
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 if not exist "%TOOLS_DIR%" mkdir "%TOOLS_DIR%"
-if not exist "%APP_DIR%" mkdir "%APP_DIR%"
 
 echo [1/7] Stopping/removing old service if present...
 if exist "%WINSW_EXE%" (
@@ -47,18 +65,39 @@ if exist "%WINSW_EXE%" (
 sc stop "%SERVICE_NAME%" >nul 2>&1
 sc delete "%SERVICE_NAME%" >nul 2>&1
 
-echo [2/7] Downloading application bundle...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%BUNDLE_URL%' -OutFile '%TMP_ZIP%'"
-if errorlevel 1 (
-    echo [ERROR] Failed to download bundle from URL.
-    exit /b 1
+if exist "%APP_DIR%" rmdir /s /q "%APP_DIR%"
+mkdir "%APP_DIR%"
+
+echo [2/7] Preparing application files...
+if /I "%SOURCE_MODE%"=="folder" (
+    if not exist "%SOURCE_DIR%\was-dashboard.exe" (
+        echo [ERROR] %SOURCE_DIR%\was-dashboard.exe not found.
+        echo         Pass the extracted folder that contains was-dashboard.exe at its root.
+        exit /b 1
+    )
+
+    robocopy "%SOURCE_DIR%" "%APP_DIR%" /E >nul
+    if errorlevel 8 (
+        echo [ERROR] Failed to copy application files from local folder.
+        exit /b 1
+    )
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri '%BUNDLE_URL%' -OutFile '%TMP_ZIP%'"
+    if errorlevel 1 (
+        echo [ERROR] Failed to download bundle from URL.
+        exit /b 1
+    )
 )
 
-echo [3/7] Extracting application bundle...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '%TMP_ZIP%' -DestinationPath '%APP_DIR%' -Force"
-if errorlevel 1 (
-    echo [ERROR] Failed to extract bundle.
-    exit /b 1
+echo [3/7] Expanding application bundle if needed...
+if /I "%SOURCE_MODE%"=="folder" (
+    echo         Local folder provided, skipping archive extraction.
+) else (
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '%TMP_ZIP%' -DestinationPath '%APP_DIR%' -Force"
+    if errorlevel 1 (
+        echo [ERROR] Failed to extract bundle.
+        exit /b 1
+    )
 )
 
 if exist "%TMP_ZIP%" del /f /q "%TMP_ZIP%"

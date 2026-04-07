@@ -16,7 +16,7 @@ Use this checklist if you are an operator/admin and do not write code.
 3. Get the prepared bundle (`was-dashboard-windows.zip`) from maintainer release artifacts.
 4. On target server, either:
   - Run `dist\was-dashboard\was-dashboard.exe`, or
-  - Run `deploy-service.bat <bundle-url>` as Administrator.
+  - Run `deploy-service.bat "C:\Deploy\was-dashboard"` as Administrator.
 5. Open `http://localhost:8000`.
 6. Change only these files when needed:
   - `config\environment.yml`
@@ -189,7 +189,7 @@ Steps:
   - `backend\.env`
 4. Start one of these ways:
   - EXE mode: run `dist\was-dashboard\was-dashboard.exe`
-  - Service mode: run `deploy-service.bat <bundle-url>` as Administrator
+  - Service mode: run `deploy-service.bat "C:\Deploy\was-dashboard"` as Administrator
 5. Open `http://localhost:8000`.
 
 ### Path B: Developer/build-machine mode
@@ -417,13 +417,14 @@ Opens at **http://localhost:8000**
 
 ```bat
 # Run as Administrator on target server:
-deploy-service.bat <bundle-url>
+deploy-service.bat "C:\Deploy\was-dashboard"
 ```
 
 Notes:
 - Service name: `WASDashboard`
 - Install location: `%ProgramData%\WASDashboard`
 - Uninstall: `uninstall-service.bat` (run as Administrator)
+- If no argument is passed, the script still falls back to the latest GitHub release zip.
 
 ### Option C – Python (developer/build machine)
 
@@ -482,8 +483,8 @@ Build machine (one-time by maintainer):
 
 Target machine (operator):
 1. Run as Administrator:
-  - `deploy-service.bat <bundle-url>`
-2. If URL is omitted, script uses default release URL.
+  - `deploy-service.bat "C:\Deploy\was-dashboard"`
+2. If no folder path is passed, script uses the default GitHub release zip.
 3. Service name:
   - `WASDashboard`
 4. Install location:
@@ -1179,7 +1180,7 @@ websphere-admin-dashboard/
 │  1. Extract was-dashboard-windows.zip on target server          │
 │  2. Edit config\environment.yml and backend\.env               │
 │  3. Run dist\was-dashboard\was-dashboard.exe                   │
-│  4. Or deploy-service.bat <bundle-url> as Administrator         │
+│  4. Or deploy-service.bat C:\Deploy\was-dashboard as Admin    │
 ├─────────────────────────────────────────────────────────────────┤
 │  EVERYDAY USE                                                   │
 │  EXE mode: run was-dashboard.exe                                │
