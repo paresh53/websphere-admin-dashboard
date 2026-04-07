@@ -399,7 +399,33 @@ IIS_DR_PASSWORD=your_iis_dr_password
 
 ## 6. Running the Dashboard
 
-### Option A – Python (quickest)
+### Option A – Standalone EXE (recommended for target servers, no install)
+
+Target server requirements:
+- No Python install
+- No Node.js install
+- No Java install
+
+```bat
+# Run:
+dist\was-dashboard\was-dashboard.exe
+```
+
+Opens at **http://localhost:8000**
+
+### Option B – Windows Service (recommended for always-on target servers, no install)
+
+```bat
+# Run as Administrator on target server:
+deploy-service.bat <bundle-url>
+```
+
+Notes:
+- Service name: `WASDashboard`
+- Install location: `%ProgramData%\WASDashboard`
+- Uninstall: `uninstall-service.bat` (run as Administrator)
+
+### Option C – Python (developer/build machine)
 
 ```bat
 # First time only:
@@ -417,7 +443,7 @@ SET BACKEND_PORT=9090
 start.bat
 ```
 
-### Option B – Java JAR
+### Option D – Java JAR
 
 Requirements: Java 17+
 
@@ -432,20 +458,17 @@ start-jar.bat
 java -Dwas.dashboard.config="D:\myconfig\environment.yml" -jar java\target\was-dashboard.jar
 ```
 
-### Option C – Standalone EXE (no Java, no Python required)
+### Option E – Build standalone EXE bundle (maintainer/build machine)
 
 ```bat
 # Build once:
 build-app.bat
-
-# Run:
-dist\was-dashboard\was-dashboard.exe
 ```
 
 To distribute to another machine: copy the entire `dist\was-dashboard\` folder.
 Edit the `config\environment.yml` inside that folder for the target environment.
 
-### Option C1 – Windows Service (no runtime install on target machine)
+### Option E1 – Build service bundle artifact (maintainer/build machine)
 
 This option lets operators run the dashboard as a background Windows service
 without installing Python/Node/Java on the target server.
@@ -476,7 +499,7 @@ Notes:
 - Service registration requires Administrator rights.
 - Users still only update `config\environment.yml` and `backend\.env` in deployed folder.
 
-### Option D – Docker
+### Option F – Docker
 
 ```bat
 # Build frontend first:
@@ -497,7 +520,7 @@ docker-compose down
 
 Opens at **http://localhost:8000**
 
-### Option E – Java WAR (deploy to existing WebSphere or Tomcat)
+### Option G – Java WAR (deploy to existing WebSphere or Tomcat)
 
 ```bat
 build-war.bat
@@ -1153,19 +1176,20 @@ websphere-admin-dashboard/
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  FIRST TIME                                                     │
-│  1. setup.bat                  ← install Python+Node deps       │
-│  2. notepad config\environment.yml  ← add your server hostnames│
-│  3. notepad backend\.env       ← add passwords                  │
-│  4. start.bat                  ← open http://localhost:8000     │
+│  1. Extract was-dashboard-windows.zip on target server          │
+│  2. Edit config\environment.yml and backend\.env               │
+│  3. Run dist\was-dashboard\was-dashboard.exe                   │
+│  4. Or deploy-service.bat <bundle-url> as Administrator         │
 ├─────────────────────────────────────────────────────────────────┤
 │  EVERYDAY USE                                                   │
-│  start.bat         ← Python (quick)                             │
-│  start-jar.bat     ← Java JAR (single file)                     │
+│  EXE mode: run was-dashboard.exe                                │
+│  Service mode: WASDashboard runs in background                  │
 ├─────────────────────────────────────────────────────────────────┤
 │  BUILD ONCE, SHARE ANYWHERE                                     │
+│  build-app.bat     → dist\was-dashboard\was-dashboard.exe       │
+│  package-service-bundle.bat → release\was-dashboard-windows.zip │
 │  build-jar.bat     → java\target\was-dashboard.jar              │
 │  build-war.bat     → java\target\was-dashboard.war              │
-│  build-app.bat     → dist\was-dashboard\was-dashboard.exe       │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
