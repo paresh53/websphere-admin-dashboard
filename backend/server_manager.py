@@ -7,7 +7,6 @@ ServerManager orchestrates all server operations:
 """
 import asyncio
 import logging
-import random
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -184,11 +183,36 @@ class ServerManager:
             from websphere_client import get_server_status
             return get_server_status(raw)
 
+    # Persistent simulation state so statuses don't flicker on every poll
+    _sim_states: dict = {}
+
     def _simulate_status(self, server_id: str) -> tuple:
-        """Return a plausible fake status for demo/testing."""
-        choices = [("running", "Port open (simulated)"), ("running", "Port open (simulated)"),
-                   ("stopped", "Port closed (simulated)")]
-        return random.choice(choices)
+        """Return a deterministic but realistic fake status for demo/testing.
+
+        Primary-site servers:   mostly RUNNING (one randomly STOPPED to show alerts)
+        DR-site servers:        STOPPED by default (standby, realistic HA/DR scenario)
+        """
+        if server_id in self._sim_states:
+            return self._sim_states[server_id]
+
+        info = self._servers.get(server_id)
+        if not info:
+            result = ("unknown", "Server not found (simulated)")
+        elif not info.is_primary_site:
+            # DR site: servers are in standby (stopped)
+            result = ("stopped", "DR standby – not active (simulated)")
+        else:
+            # Primary site: seed from server_id so result is consistent across restarts
+            # Use a hash so different servers get different outcomes
+            seed = sum(ord(c) for c in server_id)
+            # ~85% running, ~15% stopped to show at least one alert on the dashboard
+            if seed % 7 == 0:
+                result = ("stopped", "Port closed – check server (simulated)")
+            else:
+                result = ("running", "Port 9080 open (simulated)")
+
+        self._sim_states[server_id] = result
+        return result
 
     async def refresh_all_statuses(self):
         tasks = [self.check_server_status(sid) for sid in self._servers]

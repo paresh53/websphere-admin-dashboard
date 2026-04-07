@@ -20,17 +20,17 @@ app:
 # Deployment Manager  (main WebSphere management point)
 # ------------------------------------------------------------------
 deployment_manager:
-  host: "dmgr.company.com"
+  host: "dmgr01.company.com"
   soap_port: 8879
   admin_http_port: 9060
   admin_https_port: 9043
   admin_username: "wsadmin"
-  admin_password_env: "DMGR_PASSWORD"       # env var name
+  admin_password_env: "DMGR_PASSWORD"
   cell_name: "MYCell01"
   was_home: "/opt/IBM/WebSphere/AppServer"
   profile_name: "Dmgr01"
   ssh_username: "wasadmin"
-  ssh_key_env: "WAS_SSH_KEY_PATH"           # path to private key
+  ssh_key_env: "WAS_SSH_KEY_PATH"
 
 # ------------------------------------------------------------------
 # Sites (HA / DR)
@@ -52,8 +52,9 @@ sites:
 # WebSphere Application Server Clusters
 # ------------------------------------------------------------------
 clusters:
+  # ── Primary: 4-member cluster ──────────────────────────────────
   - id: "app_cluster_primary"
-    name: "Application Cluster"
+    name: "AppCluster01"
     site_id: "primary"
     was_home: "/opt/IBM/WebSphere/AppServer"
     profile_name: "AppSrv01"
@@ -62,22 +63,41 @@ clusters:
     admin_username: "wsadmin"
     admin_password_env: "DMGR_PASSWORD"
     members:
-      - id: "was_app_p1"
-        server_name: "AppServer1"
+      - id: "was_p01"
+        name: "WAS-P01"
+        server_name: "AppServer01"
         node_name: "AppNode01"
-        host: "was-app1.company.com"
+        host: "was-p01.company.com"
         http_port: 9080
         https_port: 9443
 
-      - id: "was_app_p2"
-        server_name: "AppServer2"
+      - id: "was_p02"
+        name: "WAS-P02"
+        server_name: "AppServer02"
         node_name: "AppNode02"
-        host: "was-app2.company.com"
+        host: "was-p02.company.com"
         http_port: 9080
         https_port: 9443
 
+      - id: "was_p03"
+        name: "WAS-P03"
+        server_name: "AppServer03"
+        node_name: "AppNode03"
+        host: "was-p03.company.com"
+        http_port: 9080
+        https_port: 9443
+
+      - id: "was_p04"
+        name: "WAS-P04"
+        server_name: "AppServer04"
+        node_name: "AppNode04"
+        host: "was-p04.company.com"
+        http_port: 9080
+        https_port: 9443
+
+  # ── DR: 2-member cluster (standby) ─────────────────────────────
   - id: "app_cluster_dr"
-    name: "Application Cluster (DR)"
+    name: "AppCluster01-DR"
     site_id: "dr"
     was_home: "/opt/IBM/WebSphere/AppServer"
     profile_name: "AppSrv01"
@@ -86,10 +106,19 @@ clusters:
     admin_username: "wsadmin"
     admin_password_env: "DMGR_PASSWORD"
     members:
-      - id: "was_app_dr1"
-        server_name: "AppServer1"
-        node_name: "DRAppNode01"
-        host: "dr-was-app1.company.com"
+      - id: "was_dr01"
+        name: "WAS-DR01"
+        server_name: "AppServer01"
+        node_name: "DRNode01"
+        host: "was-dr01.company.com"
+        http_port: 9080
+        https_port: 9443
+
+      - id: "was_dr02"
+        name: "WAS-DR02"
+        server_name: "AppServer02"
+        node_name: "DRNode02"
+        host: "was-dr02.company.com"
         http_port: 9080
         https_port: 9443
 
@@ -97,12 +126,12 @@ clusters:
 # On-Demand Routers (ODR / Proxy Layer)
 # ------------------------------------------------------------------
 odr_servers:
-  - id: "odr_p1"
-    name: "ODR Primary 1"
+  - id: "odr_p01"
+    name: "ODR-P01"
     site_id: "primary"
     server_name: "ODRServer01"
     node_name: "ODRNode01"
-    host: "odr1.company.com"
+    host: "odr-p01.company.com"
     http_port: 9080
     https_port: 9443
     was_home: "/opt/IBM/WebSphere/AppServer"
@@ -112,12 +141,12 @@ odr_servers:
     admin_username: "wsadmin"
     admin_password_env: "DMGR_PASSWORD"
 
-  - id: "odr_p2"
-    name: "ODR Primary 2"
+  - id: "odr_p02"
+    name: "ODR-P02"
     site_id: "primary"
     server_name: "ODRServer02"
     node_name: "ODRNode02"
-    host: "odr2.company.com"
+    host: "odr-p02.company.com"
     http_port: 9080
     https_port: 9443
     was_home: "/opt/IBM/WebSphere/AppServer"
@@ -127,12 +156,42 @@ odr_servers:
     admin_username: "wsadmin"
     admin_password_env: "DMGR_PASSWORD"
 
-  - id: "odr_dr1"
-    name: "ODR DR 1"
+  - id: "odr_p03"
+    name: "ODR-P03"
+    site_id: "primary"
+    server_name: "ODRServer03"
+    node_name: "ODRNode03"
+    host: "odr-p03.company.com"
+    http_port: 9080
+    https_port: 9443
+    was_home: "/opt/IBM/WebSphere/AppServer"
+    profile_name: "AppSrv01"
+    ssh_username: "wasadmin"
+    ssh_key_env: "WAS_SSH_KEY_PATH"
+    admin_username: "wsadmin"
+    admin_password_env: "DMGR_PASSWORD"
+
+  - id: "odr_dr01"
+    name: "ODR-DR01"
     site_id: "dr"
     server_name: "DRODRServer01"
     node_name: "DRODRNode01"
-    host: "dr-odr1.company.com"
+    host: "odr-dr01.company.com"
+    http_port: 9080
+    https_port: 9443
+    was_home: "/opt/IBM/WebSphere/AppServer"
+    profile_name: "AppSrv01"
+    ssh_username: "wasadmin"
+    ssh_key_env: "WAS_SSH_KEY_PATH"
+    admin_username: "wsadmin"
+    admin_password_env: "DMGR_PASSWORD"
+
+  - id: "odr_dr02"
+    name: "ODR-DR02"
+    site_id: "dr"
+    server_name: "DRODRServer02"
+    node_name: "DRODRNode02"
+    host: "odr-dr02.company.com"
     http_port: 9080
     https_port: 9443
     was_home: "/opt/IBM/WebSphere/AppServer"
@@ -146,59 +205,56 @@ odr_servers:
 # IIS Web Servers  (front-end layer)
 # ------------------------------------------------------------------
 iis_servers:
-  - id: "iis_p1"
-    name: "IIS Primary 1"
+  - id: "iis_p01"
+    name: "IIS-P01"
     site_id: "primary"
-    host: "iis1.company.com"
+    host: "iis-p01.company.com"
     winrm_port: 5985
     winrm_use_ssl: false
     winrm_username: "DOMAIN\\iisadmin"
-    winrm_password_env: "IIS1_PASSWORD"
+    winrm_password_env: "IIS_P01_PASSWORD"
     iis_sites:
       - name: "Default Web Site"
-        app_pools:
-          - "DefaultAppPool"
-          - "WebSphereProxy"
+        app_pools: ["DefaultAppPool", "WASProxyPool"]
 
-  - id: "iis_p2"
-    name: "IIS Primary 2"
+  - id: "iis_p02"
+    name: "IIS-P02"
     site_id: "primary"
-    host: "iis2.company.com"
+    host: "iis-p02.company.com"
     winrm_port: 5985
     winrm_use_ssl: false
     winrm_username: "DOMAIN\\iisadmin"
-    winrm_password_env: "IIS2_PASSWORD"
+    winrm_password_env: "IIS_P02_PASSWORD"
     iis_sites:
       - name: "Default Web Site"
-        app_pools:
-          - "DefaultAppPool"
+        app_pools: ["DefaultAppPool", "WASProxyPool"]
 
-  - id: "iis_dr1"
-    name: "IIS DR 1"
+  - id: "iis_dr01"
+    name: "IIS-DR01"
     site_id: "dr"
-    host: "dr-iis1.company.com"
+    host: "iis-dr01.company.com"
     winrm_port: 5985
     winrm_use_ssl: false
     winrm_username: "DOMAIN\\iisadmin"
     winrm_password_env: "IIS_DR_PASSWORD"
     iis_sites:
       - name: "Default Web Site"
-        app_pools:
-          - "DefaultAppPool"
+        app_pools: ["DefaultAppPool"]
 
 # ------------------------------------------------------------------
 # IBM FileNet Content Platform Engine (CPE)
+# CP01 & CP02 – Primary Site   |   CP03 & CP04 – DR Site
 # ------------------------------------------------------------------
 content_platform:
-  - id: "cpe_primary"
-    name: "Content Platform Engine"
+  - id: "cp01"
+    name: "CP01"
     site_id: "primary"
-    server_name: "CPEServer"
+    server_name: "CPEServer01"
     node_name: "CPENode01"
-    host: "cpe1.company.com"
+    host: "cp01.company.com"
     http_port: 9080
     https_port: 9443
-    admin_url: "http://cpe1.company.com:9080/acce"
+    admin_url: "http://cp01.company.com:9080/acce"
     was_home: "/opt/IBM/WebSphere/AppServer"
     profile_name: "AppSrv01"
     ssh_username: "wasadmin"
@@ -206,15 +262,47 @@ content_platform:
     admin_username: "wsadmin"
     admin_password_env: "DMGR_PASSWORD"
 
-  - id: "cpe_dr"
-    name: "Content Platform Engine (DR)"
-    site_id: "dr"
-    server_name: "CPEServer"
-    node_name: "DRCPENode01"
-    host: "dr-cpe1.company.com"
+  - id: "cp02"
+    name: "CP02"
+    site_id: "primary"
+    server_name: "CPEServer02"
+    node_name: "CPENode02"
+    host: "cp02.company.com"
     http_port: 9080
     https_port: 9443
-    admin_url: "http://dr-cpe1.company.com:9080/acce"
+    admin_url: "http://cp02.company.com:9080/acce"
+    was_home: "/opt/IBM/WebSphere/AppServer"
+    profile_name: "AppSrv01"
+    ssh_username: "wasadmin"
+    ssh_key_env: "WAS_SSH_KEY_PATH"
+    admin_username: "wsadmin"
+    admin_password_env: "DMGR_PASSWORD"
+
+  - id: "cp03"
+    name: "CP03"
+    site_id: "dr"
+    server_name: "CPEServer03"
+    node_name: "DRCPENode01"
+    host: "cp03.company.com"
+    http_port: 9080
+    https_port: 9443
+    admin_url: "http://cp03.company.com:9080/acce"
+    was_home: "/opt/IBM/WebSphere/AppServer"
+    profile_name: "AppSrv01"
+    ssh_username: "wasadmin"
+    ssh_key_env: "WAS_SSH_KEY_PATH"
+    admin_username: "wsadmin"
+    admin_password_env: "DMGR_PASSWORD"
+
+  - id: "cp04"
+    name: "CP04"
+    site_id: "dr"
+    server_name: "CPEServer04"
+    node_name: "DRCPENode02"
+    host: "cp04.company.com"
+    http_port: 9080
+    https_port: 9443
+    admin_url: "http://cp04.company.com:9080/acce"
     was_home: "/opt/IBM/WebSphere/AppServer"
     profile_name: "AppSrv01"
     ssh_username: "wasadmin"
@@ -226,15 +314,15 @@ content_platform:
 # IBM Content Navigator (ICN)
 # ------------------------------------------------------------------
 content_navigator:
-  - id: "icn_primary"
-    name: "Content Navigator"
+  - id: "icn_p01"
+    name: "ICN-P01"
     site_id: "primary"
-    server_name: "ICNServer"
+    server_name: "ICNServer01"
     node_name: "ICNNode01"
-    host: "icn1.company.com"
+    host: "icn-p01.company.com"
     http_port: 9080
     https_port: 9443
-    admin_url: "http://icn1.company.com:9080/navigator"
+    admin_url: "http://icn-p01.company.com:9080/navigator"
     was_home: "/opt/IBM/WebSphere/AppServer"
     profile_name: "AppSrv01"
     ssh_username: "wasadmin"
@@ -242,12 +330,28 @@ content_navigator:
     admin_username: "wsadmin"
     admin_password_env: "DMGR_PASSWORD"
 
-  - id: "icn_dr"
-    name: "Content Navigator (DR)"
+  - id: "icn_p02"
+    name: "ICN-P02"
+    site_id: "primary"
+    server_name: "ICNServer02"
+    node_name: "ICNNode02"
+    host: "icn-p02.company.com"
+    http_port: 9080
+    https_port: 9443
+    admin_url: "http://icn-p02.company.com:9080/navigator"
+    was_home: "/opt/IBM/WebSphere/AppServer"
+    profile_name: "AppSrv01"
+    ssh_username: "wasadmin"
+    ssh_key_env: "WAS_SSH_KEY_PATH"
+    admin_username: "wsadmin"
+    admin_password_env: "DMGR_PASSWORD"
+
+  - id: "icn_dr01"
+    name: "ICN-DR01"
     site_id: "dr"
-    server_name: "ICNServer"
+    server_name: "ICNServer01"
     node_name: "DRICNNode01"
-    host: "dr-icn1.company.com"
+    host: "icn-dr01.company.com"
     http_port: 9080
     https_port: 9443
     admin_url: "http://dr-icn1.company.com:9080/navigator"
