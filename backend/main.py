@@ -15,7 +15,7 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 from config_loader import load_config
-from models import ServerInfo, DashboardStatus, ActionResponse, LogEntry
+from models import ServerInfo, DashboardStatus, ActionResponse, LogEntry, AddServerRequest
 from server_manager import ServerManager
 
 logging.basicConfig(
@@ -132,6 +132,26 @@ async def get_logs(mgr: ServerManager = Depends(get_manager)):
 async def get_config(mgr: ServerManager = Depends(get_manager)):
     """Returns sanitized config (no passwords)."""
     return mgr.get_sanitized_config()
+
+
+@app.post("/api/servers/add", response_model=ActionResponse, tags=["Servers"])
+async def add_server(req: AddServerRequest, mgr: ServerManager = Depends(get_manager)):
+    """Add a new server to environment.yml and reload the inventory live."""
+    result = mgr.add_server(req)
+    return result
+
+
+@app.get("/api/sites", tags=["Config"])
+async def get_sites(mgr: ServerManager = Depends(get_manager)):
+    """Return the list of configured sites (for the Add Server form dropdown)."""
+    return mgr.config.get("sites", [])
+
+
+@app.get("/api/clusters/list", tags=["Config"])
+async def get_cluster_list(mgr: ServerManager = Depends(get_manager)):
+    """Return cluster ids + names (for the Add Server cluster dropdown)."""
+    return [{"id": c["id"], "name": c.get("name", c["id"])}
+            for c in mgr.config.get("clusters", [])]
 
 
 @app.get("/health", tags=["Health"])

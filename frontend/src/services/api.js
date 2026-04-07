@@ -36,6 +36,17 @@ export const fetchLogs = () =>
 export const fetchConfig = () =>
   http.get('/api/config').then(r => r.data)
 
+// ── Add Server ───────────────────────────────────────────────────────
+export const addServer = (payload) =>
+  http.post('/api/servers/add', payload).then(r => r.data)
+
+export const fetchSites = () =>
+  http.get('/api/sites').then(r => r.data)
+
+export const fetchClusterList = () =>
+  http.get('/api/clusters/list').then(r => r.data)
+
 export default { fetchStatus, fetchServers, triggerRefresh,
                  startServer, stopServer, restartServer,
-                 getServerStatus, fetchLogs, fetchConfig }
+                 getServerStatus, fetchLogs, fetchConfig,
+                 addServer, fetchSites, fetchClusterList }

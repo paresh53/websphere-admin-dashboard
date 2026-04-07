@@ -44,11 +44,13 @@ middleware stack across multiple data centres:
 - HA/DR aware – Primary and DR sites shown in separate tabs with colour-coding
 - Cluster aware – WAS members grouped under their cluster with a running count
 - Start / Stop / Restart any server with a confirmation dialog
+- **Add new servers directly from the UI** without editing any config files
 - Auto-refresh every 30 seconds (configurable)
 - Activity log showing who did what and when
 - Simulation mode – full UI without any real servers
-- Three deployment formats: Python app, Java JAR/WAR, standalone EXE
+- Five deployment formats: Python app, Java JAR/WAR, standalone EXE, Docker
 - Single YAML config file covers all backends with no code changes needed
+- Slim backend: only **4 core Python packages** required
 
 ---
 
@@ -66,32 +68,79 @@ middleware stack across multiple data centres:
 
 ## 3. Prerequisites
 
-### To run the Python version (recommended for quick start)
+### Quick-reference by deployment type
 
-| Software | Minimum version | Download |
-|----------|----------------|---------|
-| Python | 3.8+ | https://www.python.org/downloads/ |
-| Node.js | 18+ | https://nodejs.org/ |
-| Git (optional) | Any | https://git-scm.com/ |
+| What you want to do | Software needed |
+|---------------------|-----------------|
+| Run the Python app | Python 3.10+, Node.js 18+ |
+| Build / run Java JAR | Java JDK 17+, Maven 3.8+, Node.js 18+ |
+| Run the standalone EXE | **Nothing** – fully bundled |
+| Run via Docker | Docker Desktop (any recent version) |
 
-### To build / run the Java JAR or WAR
+---
 
-| Software | Minimum version | Download |
-|----------|----------------|---------|
-| Java (JDK) | 17+ | https://adoptium.net/ |
-| Maven | 3.8+ | https://maven.apache.org/ |
-| Node.js | 18+ (for frontend build) | https://nodejs.org/ |
+### Python version (recommended)
 
-### To run the standalone EXE
+| Software | Minimum | Download | Verify |
+|----------|---------|----------|--------|
+| Python | **3.10+** | https://www.python.org/downloads/ | `python --version` |
+| Node.js | **18+** | https://nodejs.org/ | `node --version` |
+| Git | Any | https://git-scm.com/ | Optional – for cloning |
 
-No extra software needed on the target machine. The EXE bundles Python and
-the frontend together.
+> **Windows install tip:** When installing Python, tick **"Add Python to PATH"**.
+> When installing Node.js, the installer adds it to PATH automatically.
 
-### To use Docker
+Verify both are installed before running `setup.bat`:
+```bat
+python --version
+node --version
+```
+
+**Python packages installed automatically by `setup.bat`** (4 core packages only):
+
+| Package | Purpose |
+|---------|---------|
+| `fastapi` | REST API framework |
+| `uvicorn` | ASGI web server |
+| `pyyaml` | Reads `environment.yml` config |
+| `python-dotenv` | Loads secrets from `backend\.env` |
+| `paramiko` | SSH to Linux WAS nodes *(only needed when `simulation_mode: false`)* |
+
+No `requests`, no `httpx`, no extra frameworks – the backend is intentionally lean.
+
+---
+
+### Java JAR / WAR version
+
+| Software | Minimum | Download | Verify |
+|----------|---------|----------|--------|
+| Java JDK | **17+** | https://adoptium.net/ | `java -version` |
+| Maven | **3.8+** | https://maven.apache.org/ | `mvn -version` |
+| Node.js | **18+** | https://nodejs.org/ | `node --version` |
+
+```bat
+java -version
+mvn -version
+node --version
+```
+
+---
+
+### Standalone EXE (zero dependencies)
+
+No Python, no Java, no Node.js required on the target machine.
+The EXE bundles the entire Python runtime and the built React frontend.
+Just copy the `dist\was-dashboard\` folder and run `was-dashboard.exe`.
+
+---
+
+### Docker
 
 | Software | Version | Download |
-|----------|---------|---------|
+|----------|---------|----------|
 | Docker Desktop | Any recent | https://www.docker.com/products/docker-desktop |
+
+Verify: `docker --version`
 
 ---
 
@@ -406,6 +455,40 @@ Useful for auditing who started or stopped what.
 
 ---
 
+### Adding a New Server from the UI
+
+You can add a server to the dashboard **without editing any files** and without
+a restart. Every section header has an **"+ Add"** button:
+
+1. Click **"+ Add"** next to the section you want (e.g., Content Platform Engine)
+2. The **Add New Server** modal opens with the correct type pre-selected
+3. Fill in the form fields:
+
+   | Field | Description |
+   |-------|-------------|
+   | Server Type | WAS / ODR / IIS / CPE / ICN – changes visible fields dynamically |
+   | Site | Primary or DR |
+   | Server ID | Unique lowercase id, e.g. `cp05` (auto-generates server/node name) |
+   | Display Name | Label shown on the card, e.g. `CP05` |
+   | Hostname / IP | DNS name or IP address of the server |
+   | HTTP Port | Port used for TCP status checks (default 9080) |
+   | Server Name | WAS server name used by `startServer.sh` |
+   | Node Name | WAS node name |
+   | WAS Home | Install path, e.g. `/opt/IBM/WebSphere/AppServer` |
+   | SSH / WinRM | Credentials via env-var names (never raw passwords) |
+   | Add to Cluster | WAS only – optionally join an existing cluster |
+
+4. A **preview badge** at the bottom shows how the card will look
+5. Click **Add Server** – the server is:
+   - Written to `config\environment.yml` immediately
+   - Hot-loaded into the running backend (no restart needed)
+   - Visible on the dashboard within seconds
+
+> **Simulation mode:** the new server will show a simulated status
+> (running for Primary site, stopped/standby for DR site).
+
+---
+
 ## 8. Build Formats
 
 ### Summary
@@ -581,17 +664,22 @@ content_navigator:
     admin_password_env: "DMGR_PASSWORD"
 ```
 
-### Adding a new server – checklist
+### Adding a new server – two ways
 
+**Option A – From the UI (recommended, no restart needed):**
+1. Click **"+ Add"** in any section header on the dashboard
+2. Fill the form and click **Add Server**
+3. Server appears immediately – config file is updated automatically
+
+**Option B – Edit the YAML directly:**
 1. Choose the right section (`clusters` > `members`, `odr_servers`, `iis_servers`, `content_platform`, or `content_navigator`)
 2. Copy an existing entry
 3. Give it a new unique `id` (e.g., `cp05`)
 4. Update `name`, `host`, `server_name`, `node_name`
 5. Set `site_id` to either `"primary"` or `"dr"` (or a custom site id)
-6. Save the file
-7. Restart the backend (`start.bat` or `start-jar.bat`)
+6. Save the file – the backend hot-reloads within 30 seconds
 
-No code changes needed. The backend reads the config on startup.
+No code changes needed either way.
 
 ---
 
@@ -712,6 +800,9 @@ integrate the dashboard with monitoring tools, CI/CD pipelines, or scripts.
 | POST | `/api/refresh` | Refresh all server statuses |
 | GET | `/api/logs` | Activity log (last 100 entries) |
 | GET | `/api/config` | Current config with passwords redacted |
+| **POST** | **`/api/servers/add`** | **Add a new server (writes to YAML + hot-reloads)** |
+| GET | `/api/sites` | List of configured sites (for the Add Server form) |
+| GET | `/api/clusters/list` | List of cluster ids/names (for the Add Server form) |
 
 **Example – check if a server is running:**
 ```bash

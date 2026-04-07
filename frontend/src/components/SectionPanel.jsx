@@ -2,10 +2,10 @@
  * SectionPanel – collapsible panel that groups server cards by type.
  */
 import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, PlusCircle } from 'lucide-react'
 import ServerCard from './ServerCard.jsx'
 
-export default function SectionPanel({ title, icon: Icon, servers, onAction, onToast, defaultOpen = true }) {
+export default function SectionPanel({ title, icon: Icon, servers, onAction, onToast, onAdd, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
 
   if (!servers || servers.length === 0) return null
@@ -35,6 +35,17 @@ export default function SectionPanel({ title, icon: Icon, servers, onAction, onT
             )}
           </span>
         </div>
+        {onAdd && (
+          <button
+            onClick={e => { e.stopPropagation(); onAdd() }}
+            className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800
+                       font-semibold border border-blue-200 hover:border-blue-400
+                       rounded-lg px-2 py-0.5 transition-colors mr-1"
+            title="Add a server to this section"
+          >
+            <PlusCircle size={13} /> Add
+          </button>
+        )}
         {open ? (
           <ChevronDown size={16} className="text-slate-400 group-hover:text-slate-600" />
         ) : (

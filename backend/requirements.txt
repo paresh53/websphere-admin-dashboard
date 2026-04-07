@@ -1,11 +1,10 @@
+# ── Core (always required) ──────────────────────────────────────────
 fastapi==0.111.0
-uvicorn[standard]==0.29.0
+uvicorn==0.29.0
 pyyaml==6.0.1
-# paramiko: install with --only-binary :all: to avoid Rust build requirement on Python 3.13+
-paramiko==3.5.0
 python-dotenv==1.0.1
-httpx==0.27.0
-pydantic==2.7.1
-requests==2.32.3
-# pywinrm is optional (IIS WinRM support). Install separately if needed:
-#   pip install pywinrm
+
+# ── Optional: SSH support (only when simulation_mode: false) ────────
+# Install manually if you need real server connectivity:
+#   pip install paramiko==3.5.0
+paramiko==3.5.0

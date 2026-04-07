@@ -340,6 +340,190 @@ class ServerManager:
     def get_activity_logs(self) -> List[LogEntry]:
         return self._activity_log
 
+    # ── Add server ───────────────────────────────────────────────────
+
+    def add_server(self, req) -> "ActionResponse":
+        """Append a new server to environment.yml and hot-reload the inventory."""
+        import yaml, re
+        from pathlib import Path
+
+        # Validate: id must be unique
+        if req.id in self._servers:
+            return ActionResponse(
+                success=False,
+                message=f"Server id '{req.id}' already exists.",
+                server_id=req.id,
+                action="add",
+            )
+
+        # Validate: site_id must exist
+        known_sites = {s["id"] for s in self.config.get("sites", [])}
+        if req.site_id not in known_sites:
+            return ActionResponse(
+                success=False,
+                message=f"Site '{req.site_id}' is not defined in config. Add it under 'sites' first.",
+                server_id=req.id,
+                action="add",
+            )
+
+        # Build the new config dict entry
+        srv_type = req.type.value  # e.g. "websphere"
+
+        base = {
+            "id": req.id,
+            "name": req.name,
+            "site_id": req.site_id,
+            "host": req.host,
+            "http_port": req.http_port,
+            "https_port": req.https_port,
+        }
+
+        was_fields = {
+            "server_name": req.server_name or req.name,
+            "node_name": req.node_name or (req.id.upper() + "Node"),
+            "was_home": req.was_home,
+            "profile_name": req.profile_name,
+            "ssh_username": req.ssh_username,
+            "ssh_key_env": req.ssh_key_env,
+            "admin_username": req.admin_username,
+            "admin_password_env": req.admin_password_env,
+        }
+
+        if srv_type == "iis":
+            entry = {**base,
+                     "winrm_port": req.winrm_port,
+                     "winrm_use_ssl": req.winrm_use_ssl,
+                     "winrm_username": req.winrm_username or "DOMAIN\\iisadmin",
+                     "winrm_password_env": req.winrm_password_env or f"IIS_{req.id.upper()}_PASSWORD",
+                     "iis_sites": [{"name": "Default Web Site", "app_pools": ["DefaultAppPool"]}]}
+        elif srv_type in ("cpe", "icn"):
+            entry = {**base, **was_fields,
+                     "admin_url": req.admin_url or f"http://{req.host}:{req.http_port}/{'acce' if srv_type == 'cpe' else 'navigator'}"}
+        elif srv_type in ("websphere", "odr"):
+            entry = {**base, **was_fields}
+        else:
+            entry = {**base}
+
+        # Write to YAML
+        config_path = self._find_config_path()
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                raw = f.read()
+
+            # Determine target YAML section key
+            section_map = {
+                "websphere": "clusters",
+                "odr": "odr_servers",
+                "iis": "iis_servers",
+                "cpe": "content_platform",
+                "icn": "content_navigator",
+            }
+            section = section_map.get(srv_type, "odr_servers")
+
+            config_data = yaml.safe_load(raw)
+
+            if srv_type == "websphere" and req.cluster_id:
+                # Add as a cluster member
+                added = False
+                for cluster in config_data.get("clusters", []):
+                    if cluster["id"] == req.cluster_id:
+                        member_entry = {k: v for k, v in entry.items()
+                                        if k not in ("was_home", "profile_name", "ssh_username",
+                                                     "ssh_key_env", "admin_username", "admin_password_env")}
+                        cluster.setdefault("members", []).append(member_entry)
+                        added = True
+                        break
+                if not added:
+                    return ActionResponse(
+                        success=False,
+                        message=f"Cluster '{req.cluster_id}' not found.",
+                        server_id=req.id,
+                        action="add",
+                    )
+            else:
+                config_data.setdefault(section, []).append(entry)
+
+            # Write back with block style
+            with open(config_path, "w", encoding="utf-8") as f:
+                yaml.dump(config_data, f, default_flow_style=False,
+                          allow_unicode=True, sort_keys=False)
+
+        except Exception as exc:
+            return ActionResponse(
+                success=False,
+                message=f"Failed to write config: {exc}",
+                server_id=req.id,
+                action="add",
+            )
+
+        # Hot-reload: build ServerInfo and add to running inventory
+        site_name, color, is_primary = self._site_info(req.site_id)
+        type_enum = ServerType(srv_type)
+
+        info = ServerInfo(
+            id=req.id,
+            name=req.name,
+            type=type_enum,
+            host=req.host,
+            site_id=req.site_id,
+            site_name=site_name,
+            site_color=color,
+            is_primary_site=is_primary,
+            http_port=req.http_port,
+            https_port=req.https_port,
+            admin_url=entry.get("admin_url"),
+            node_name=entry.get("node_name"),
+            server_name=entry.get("server_name"),
+            cluster_name=None,
+        )
+
+        # If added to a cluster, update its member list in config cache
+        if srv_type == "websphere" and req.cluster_id:
+            for cluster in self.config.get("clusters", []):
+                if cluster["id"] == req.cluster_id:
+                    info.cluster_name = cluster.get("name")
+                    cluster.setdefault("members", []).append({**entry, "id": req.id})
+                    break
+        else:
+            self.config.setdefault(section, []).append(entry)
+
+        self._servers[req.id] = info
+        self._server_raw[req.id] = entry
+
+        # Set initial simulated status
+        if self._simulation:
+            self._sim_states[req.id] = (
+                ("running", "Port open (simulated)")
+                if is_primary
+                else ("stopped", "DR standby – not active (simulated)")
+            )
+            info.status = ServerStatus("running" if is_primary else "stopped")
+
+        self._log(req.id, req.name, "add", True,
+                  f"Server '{req.name}' added to {section} and saved to config.")
+
+        return ActionResponse(
+            success=True,
+            message=f"Server '{req.name}' added successfully.",
+            server_id=req.id,
+            action="add",
+        )
+
+    def _find_config_path(self) -> str:
+        """Find environment.yml path."""
+        import os
+        from pathlib import Path
+        candidates = [
+            os.getenv("WAS_DASHBOARD_CONFIG", ""),
+            Path(__file__).parent.parent / "config" / "environment.yml",
+            Path(__file__).parent / "config" / "environment.yml",
+            "config/environment.yml",
+        ]
+        for p in candidates:
+            if p and Path(p).exists():
+                return str(p)
+        raise FileNotFoundError("Cannot locate environment.yml")
+
     # ── Logging ──────────────────────────────────────────────────────
 
     def _log(self, server_id: str, server_name: str, action: str, success: bool, message: str):

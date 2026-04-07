@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────
 #  Pydantic data models for the dashboard API
 # ─────────────────────────────────────────────
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 from enum import Enum
 
@@ -83,3 +83,37 @@ class LogEntry(BaseModel):
     success: bool
     message: str
     user: str = "dashboard"
+
+
+class AddServerRequest(BaseModel):
+    """Payload for POST /api/servers/add"""
+    # core identity
+    id: str = Field(..., description="Unique server ID, e.g. cp05")
+    name: str = Field(..., description="Display name shown on the card")
+    type: ServerType = Field(..., description="Server type")
+    site_id: str = Field(..., description="Must match a site id in config")
+    host: str = Field(..., description="Hostname or IP address")
+
+    # ports
+    http_port: Optional[int] = 9080
+    https_port: Optional[int] = 9443
+
+    # WAS / ODR / CPE / ICN fields
+    server_name: Optional[str] = None
+    node_name: Optional[str] = None
+    was_home: Optional[str] = "/opt/IBM/WebSphere/AppServer"
+    profile_name: Optional[str] = "AppSrv01"
+    ssh_username: Optional[str] = "wasadmin"
+    ssh_key_env: Optional[str] = "WAS_SSH_KEY_PATH"
+    admin_username: Optional[str] = "wsadmin"
+    admin_password_env: Optional[str] = "DMGR_PASSWORD"
+    admin_url: Optional[str] = None
+
+    # Cluster membership (WAS only)
+    cluster_id: Optional[str] = None   # existing cluster id to add member to
+
+    # IIS-specific
+    winrm_port: Optional[int] = 5985
+    winrm_use_ssl: Optional[bool] = False
+    winrm_username: Optional[str] = None
+    winrm_password_env: Optional[str] = None

@@ -3,12 +3,12 @@
  * Renders SummaryStats, WAS clusters, ODRs, IIS, CPE, ICN.
  * Filters servers by selected site.
  */
-import { Layers, Router, Globe, Database, BookOpen } from 'lucide-react'
+import { Layers, Router, Globe, Database, BookOpen, PlusCircle } from 'lucide-react'
 import SummaryStats from './SummaryStats.jsx'
 import SectionPanel from './SectionPanel.jsx'
 import ClusterView from './ClusterView.jsx'
 
-export default function Dashboard({ data, activeSite, onAction, onToast }) {
+export default function Dashboard({ data, activeSite, onAction, onToast, onAddServer }) {
   if (!data) return null
 
   const filterSite = (items) => {
@@ -43,7 +43,11 @@ export default function Dashboard({ data, activeSite, onAction, onToast }) {
       {/* WAS Clusters */}
       {visibleClusters.length > 0 && (
         <section className="mb-6">
-          <SectionHeader icon={Layers} title="WebSphere Application Clusters" />
+          <SectionHeader
+            icon={Layers}
+            title="WebSphere Application Clusters"
+            onAdd={() => onAddServer?.('websphere')}
+          />
           {visibleClusters.map(cluster => (
             <ClusterView
               key={cluster.id}
@@ -62,6 +66,7 @@ export default function Dashboard({ data, activeSite, onAction, onToast }) {
         servers={filteredOdr}
         onAction={onAction}
         onToast={onToast}
+        onAdd={() => onAddServer?.('odr')}
       />
 
       {/* IIS servers */}
@@ -71,6 +76,7 @@ export default function Dashboard({ data, activeSite, onAction, onToast }) {
         servers={filteredIis}
         onAction={onAction}
         onToast={onToast}
+        onAdd={() => onAddServer?.('iis')}
       />
 
       {/* CPE */}
@@ -80,6 +86,7 @@ export default function Dashboard({ data, activeSite, onAction, onToast }) {
         servers={filteredCpe}
         onAction={onAction}
         onToast={onToast}
+        onAdd={() => onAddServer?.('cpe')}
       />
 
       {/* ICN */}
@@ -89,16 +96,28 @@ export default function Dashboard({ data, activeSite, onAction, onToast }) {
         servers={filteredIcn}
         onAction={onAction}
         onToast={onToast}
+        onAdd={() => onAddServer?.('icn')}
       />
     </div>
   )
 }
 
-function SectionHeader({ icon: Icon, title }) {
+function SectionHeader({ icon: Icon, title, onAdd }) {
   return (
     <div className="flex items-center gap-2 mb-3">
       <Icon size={17} className="text-slate-500 shrink-0" />
-      <h2 className="font-semibold text-slate-700 text-sm uppercase tracking-wide">{title}</h2>
+      <h2 className="font-semibold text-slate-700 text-sm uppercase tracking-wide flex-1">{title}</h2>
+      {onAdd && (
+        <button
+          onClick={onAdd}
+          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800
+                     font-semibold border border-blue-200 hover:border-blue-400
+                     rounded-lg px-2 py-0.5 transition-colors"
+          title="Add a server to this section"
+        >
+          <PlusCircle size={13} /> Add
+        </button>
+      )}
     </div>
   )
 }

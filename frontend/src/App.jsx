@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Navbar from './components/Navbar.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import ActivityLog from './components/ActivityLog.jsx'
+import AddServerModal from './components/AddServerModal.jsx'
 import { fetchStatus, fetchLogs, triggerRefresh } from './services/api.js'
 
 const REFRESH_MS = 30_000  // fallback; overridden by config refresh_interval
@@ -17,6 +18,15 @@ export default function App() {
   const [activeSite, setActiveSite] = useState('all')
   const [toast, setToast] = useState(null)
   const [showLog, setShowLog] = useState(false)
+  const [addModal, setAddModal] = useState({ open: false, presetType: null })
+
+  const openAddServer = (presetType = null) =>
+    setAddModal({ open: true, presetType })
+
+  const handleServerAdded = (res) => {
+    showToast({ type: 'success', message: res.message ?? `Server added successfully` })
+    loadData(true)
+  }
   const timerRef = useRef(null)
 
   const loadData = useCallback(async (silent = false) => {
@@ -83,6 +93,7 @@ export default function App() {
                 activeSite={activeSite}
                 onAction={loadData}
                 onToast={showToast}
+                onAddServer={openAddServer}
               />
             </div>
             {showLog && (
@@ -95,6 +106,15 @@ export default function App() {
       </main>
 
       {toast && <Toast toast={toast} />}
+
+      {addModal.open && (
+        <AddServerModal
+          sites={data?.sites ?? []}
+          presetType={addModal.presetType}
+          onClose={() => setAddModal({ open: false, presetType: null })}
+          onAdded={handleServerAdded}
+        />
+      )}
     </div>
   )
 }
