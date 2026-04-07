@@ -27,8 +27,9 @@ export default function Dashboard({ data, activeSite, onAction, onToast, onAddSe
   const filteredIcn = filterSite(data.content_navigator ?? [])
 
   const hasAnything =
-    visibleClusters.length + filteredOdr.length + filteredIis.length +
-    filteredCpe.length + filteredIcn.length > 0
+    data.clusters.length + (data.odr_servers?.length ?? 0) +
+    (data.iis_servers?.length ?? 0) + (data.content_platform?.length ?? 0) +
+    (data.content_navigator?.length ?? 0) > 0
 
   return (
     <div>
@@ -41,23 +42,30 @@ export default function Dashboard({ data, activeSite, onAction, onToast, onAddSe
       )}
 
       {/* WAS Clusters */}
-      {visibleClusters.length > 0 && (
-        <section className="mb-6">
-          <SectionHeader
-            icon={Layers}
-            title="WebSphere Application Clusters"
-            onAdd={() => onAddServer?.('websphere')}
-          />
-          {visibleClusters.map(cluster => (
+      <section className="mb-6">
+        <SectionHeader
+          icon={Layers}
+          title="WebSphere Application Clusters"
+          onAdd={() => onAddServer?.('websphere')}
+        />
+        {visibleClusters.length === 0 ? (
+          <div className="text-center py-6 text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            <p className="text-sm">No clusters yet.</p>
+            <button onClick={() => onAddServer?.('websphere')} className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-semibold underline">
+              Add the first WAS server
+            </button>
+          </div>
+        ) : (
+          visibleClusters.map(cluster => (
             <ClusterView
               key={cluster.id}
               cluster={cluster}
               onAction={onAction}
               onToast={onToast}
             />
-          ))}
-        </section>
-      )}
+          ))
+        )}
+      </section>
 
       {/* ODR servers */}
       <SectionPanel

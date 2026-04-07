@@ -15,7 +15,11 @@ from fastapi.responses import FileResponse
 from pathlib import Path
 
 from config_loader import load_config
-from models import ServerInfo, DashboardStatus, ActionResponse, LogEntry, AddServerRequest
+from models import (
+    ServerInfo, DashboardStatus, ActionResponse, LogEntry,
+    AddServerRequest, SimulationToggleRequest, UpdateDmgrRequest,
+    DailyScheduleRequest,
+)
 from server_manager import ServerManager
 
 logging.basicConfig(
@@ -53,6 +57,7 @@ async def _poll_loop(mgr: ServerManager):
     while True:
         await asyncio.sleep(interval)
         try:
+            await mgr.run_due_daily_schedules()
             await mgr.refresh_all_statuses()
         except Exception as exc:
             logger.error("Polling error: %s", exc)
@@ -152,6 +157,32 @@ async def get_cluster_list(mgr: ServerManager = Depends(get_manager)):
     """Return cluster ids + names (for the Add Server cluster dropdown)."""
     return [{"id": c["id"], "name": c.get("name", c["id"])}
             for c in mgr.config.get("clusters", [])]
+
+
+@app.patch("/api/settings/simulation", tags=["Config"])
+async def toggle_simulation(req: SimulationToggleRequest, mgr: ServerManager = Depends(get_manager)):
+    """Turn simulation mode on or off and persist to environment.yml."""
+    mgr.set_simulation_mode(req.enabled)
+    return {"success": True, "simulation_mode": req.enabled,
+            "message": f"Simulation mode {'enabled' if req.enabled else 'disabled'}"}
+
+
+@app.patch("/api/settings/dmgr", tags=["Config"])
+async def update_dmgr(req: UpdateDmgrRequest, mgr: ServerManager = Depends(get_manager)):
+    """Persist Deployment Manager connection details to environment.yml."""
+    settings = req.model_dump(exclude_none=True)
+    mgr.update_dmgr_settings(settings)
+    return {"success": True, "message": "DMGR settings saved"}
+
+
+@app.patch("/api/servers/{server_id}/daily-schedule", tags=["Servers"])
+async def set_daily_schedule(server_id: str, req: DailyScheduleRequest,
+                             mgr: ServerManager = Depends(get_manager)):
+    """Set a daily start/stop/restart schedule for a server (persistent in YAML)."""
+    result = mgr.set_daily_schedule(server_id, req.model_dump())
+    if not result.success:
+        raise HTTPException(status_code=400, detail=result.message)
+    return result
 
 
 @app.get("/health", tags=["Health"])

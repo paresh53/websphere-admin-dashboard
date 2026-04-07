@@ -41,6 +41,9 @@ class ServerInfo(BaseModel):
     last_checked: Optional[str] = None
     message: Optional[str] = None
     cluster_name: Optional[str] = None
+    auto_schedule_enabled: bool = False
+    auto_schedule_action: Optional[str] = None
+    auto_schedule_time: Optional[str] = None
 
 
 class SiteInfo(BaseModel):
@@ -66,6 +69,8 @@ class DashboardStatus(BaseModel):
     stopped_count: int
     unknown_count: int
     last_refresh: str
+    simulation_mode: bool = True
+    is_first_run: bool = False
 
 
 class ActionResponse(BaseModel):
@@ -73,6 +78,25 @@ class ActionResponse(BaseModel):
     message: str
     server_id: str
     action: str
+
+
+class SimulationToggleRequest(BaseModel):
+    """Payload for PATCH /api/settings/simulation"""
+    enabled: bool
+
+
+class UpdateDmgrRequest(BaseModel):
+    """Payload for PATCH /api/settings/dmgr"""
+    host: str
+    cell_name: str
+    admin_username: Optional[str] = 'wsadmin'
+    admin_password_env: Optional[str] = 'DMGR_PASSWORD'
+    was_home: Optional[str] = '/opt/IBM/WebSphere/AppServer'
+    profile_name: Optional[str] = 'Dmgr01'
+    ssh_username: Optional[str] = 'wasadmin'
+    ssh_key_env: Optional[str] = 'WAS_SSH_KEY_PATH'
+    soap_port: Optional[int] = 8879
+    admin_https_port: Optional[int] = 9043
 
 
 class LogEntry(BaseModel):
@@ -117,3 +141,10 @@ class AddServerRequest(BaseModel):
     winrm_use_ssl: Optional[bool] = False
     winrm_username: Optional[str] = None
     winrm_password_env: Optional[str] = None
+
+
+class DailyScheduleRequest(BaseModel):
+    """Payload for per-server daily auto schedule."""
+    enabled: bool = True
+    action: str = Field(..., description="start | stop | restart")
+    time: str = Field(..., description="24-hour HH:MM, e.g. 17:00")

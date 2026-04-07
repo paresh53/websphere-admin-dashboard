@@ -29,6 +29,9 @@ export const restartServer = (id) =>
 export const getServerStatus = (id) =>
   http.get(`/api/servers/${id}/status`).then(r => r.data)
 
+export const setDailySchedule = (id, payload) =>
+  http.patch(`/api/servers/${id}/daily-schedule`, payload).then(r => r.data)
+
 // ── Logs & Config ────────────────────────────────────────────────────
 export const fetchLogs = () =>
   http.get('/api/logs').then(r => r.data)
@@ -46,7 +49,16 @@ export const fetchSites = () =>
 export const fetchClusterList = () =>
   http.get('/api/clusters/list').then(r => r.data)
 
+// ── Simulation toggle ────────────────────────────────────────────────
+export const toggleSimulation = (enabled) =>
+  http.patch('/api/settings/simulation', { enabled }).then(r => r.data)
+
+// ── DMGR settings ────────────────────────────────────────────────────
+export const updateDmgr = (payload) =>
+  http.patch('/api/settings/dmgr', payload).then(r => r.data)
+
 export default { fetchStatus, fetchServers, triggerRefresh,
                  startServer, stopServer, restartServer,
-                 getServerStatus, fetchLogs, fetchConfig,
-                 addServer, fetchSites, fetchClusterList }
+                 getServerStatus, setDailySchedule, fetchLogs, fetchConfig,
+                 addServer, fetchSites, fetchClusterList,
+                 toggleSimulation, updateDmgr }

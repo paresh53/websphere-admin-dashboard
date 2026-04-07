@@ -38,6 +38,12 @@ class ServerManager:
                 return s.get("name", site_id), s.get("color", "#1e40af"), s.get("is_primary", False)
         return site_id, "#1e40af", False
 
+    def _schedule_from_raw(self, raw: dict) -> tuple[bool, Optional[str], Optional[str]]:
+        sched = raw.get("auto_schedule") if isinstance(raw, dict) else None
+        if not isinstance(sched, dict):
+            return False, None, None
+        return bool(sched.get("enabled", False)), sched.get("action"), sched.get("time")
+
     def _build_inventory(self):
         """Populate _servers dict from config."""
 
@@ -47,6 +53,9 @@ class ServerManager:
             site_id = cluster.get("site_id", "primary")
             site_name, color, is_primary = self._site_info(site_id)
             for member in cluster.get("members", []):
+                # When simulation is OFF, only include explicitly added servers
+                if not self._simulation and not member.get("user_added", False):
+                    continue
                 srv_id = member["id"]
                 raw = {**cluster, **member}   # member overrides cluster-level keys
                 info = ServerInfo(
@@ -63,12 +72,17 @@ class ServerManager:
                     node_name=member.get("node_name"),
                     server_name=member.get("server_name"),
                     cluster_name=cluster_name,
+                    auto_schedule_enabled=bool(member.get("auto_schedule", {}).get("enabled", False)),
+                    auto_schedule_action=member.get("auto_schedule", {}).get("action"),
+                    auto_schedule_time=member.get("auto_schedule", {}).get("time"),
                 )
                 self._servers[srv_id] = info
                 self._server_raw[srv_id] = raw
 
         # ODR servers
         for odr in self.config.get("odr_servers", []):
+            if not self._simulation and not odr.get("user_added", False):
+                continue
             srv_id = odr["id"]
             site_name, color, is_primary = self._site_info(odr.get("site_id", "primary"))
             info = ServerInfo(
@@ -84,12 +98,17 @@ class ServerManager:
                 https_port=odr.get("https_port"),
                 node_name=odr.get("node_name"),
                 server_name=odr.get("server_name"),
+                auto_schedule_enabled=bool(odr.get("auto_schedule", {}).get("enabled", False)),
+                auto_schedule_action=odr.get("auto_schedule", {}).get("action"),
+                auto_schedule_time=odr.get("auto_schedule", {}).get("time"),
             )
             self._servers[srv_id] = info
             self._server_raw[srv_id] = odr
 
         # IIS servers
         for iis in self.config.get("iis_servers", []):
+            if not self._simulation and not iis.get("user_added", False):
+                continue
             srv_id = iis["id"]
             site_name, color, is_primary = self._site_info(iis.get("site_id", "primary"))
             info = ServerInfo(
@@ -103,12 +122,17 @@ class ServerManager:
                 is_primary_site=is_primary,
                 http_port=80,
                 https_port=443,
+                auto_schedule_enabled=bool(iis.get("auto_schedule", {}).get("enabled", False)),
+                auto_schedule_action=iis.get("auto_schedule", {}).get("action"),
+                auto_schedule_time=iis.get("auto_schedule", {}).get("time"),
             )
             self._servers[srv_id] = info
             self._server_raw[srv_id] = iis
 
         # CPE servers
         for cpe in self.config.get("content_platform", []):
+            if not self._simulation and not cpe.get("user_added", False):
+                continue
             srv_id = cpe["id"]
             site_name, color, is_primary = self._site_info(cpe.get("site_id", "primary"))
             info = ServerInfo(
@@ -125,12 +149,17 @@ class ServerManager:
                 admin_url=cpe.get("admin_url"),
                 node_name=cpe.get("node_name"),
                 server_name=cpe.get("server_name"),
+                auto_schedule_enabled=bool(cpe.get("auto_schedule", {}).get("enabled", False)),
+                auto_schedule_action=cpe.get("auto_schedule", {}).get("action"),
+                auto_schedule_time=cpe.get("auto_schedule", {}).get("time"),
             )
             self._servers[srv_id] = info
             self._server_raw[srv_id] = cpe
 
         # ICN servers
         for icn in self.config.get("content_navigator", []):
+            if not self._simulation and not icn.get("user_added", False):
+                continue
             srv_id = icn["id"]
             site_name, color, is_primary = self._site_info(icn.get("site_id", "primary"))
             info = ServerInfo(
@@ -147,6 +176,9 @@ class ServerManager:
                 admin_url=icn.get("admin_url"),
                 node_name=icn.get("node_name"),
                 server_name=icn.get("server_name"),
+                auto_schedule_enabled=bool(icn.get("auto_schedule", {}).get("enabled", False)),
+                auto_schedule_action=icn.get("auto_schedule", {}).get("action"),
+                auto_schedule_time=icn.get("auto_schedule", {}).get("time"),
             )
             self._servers[srv_id] = info
             self._server_raw[srv_id] = icn
@@ -295,11 +327,19 @@ class ServerManager:
         # Group servers by type
         def filter_type(t): return [s for s in servers if s.type == t]
 
-        # Build cluster groups
+        # Build cluster groups (skip clusters with no visible members)
         cluster_groups = []
         for cluster in self.config.get("clusters", []):
-            member_ids = [m["id"] for m in cluster.get("members", [])]
+            # Deduplicate member IDs — YAML may have duplicate IDs from old entries
+            seen_ids: set = set()
+            member_ids = []
+            for m in cluster.get("members", []):
+                if m["id"] not in seen_ids:
+                    seen_ids.add(m["id"])
+                    member_ids.append(m["id"])
             members = [self._servers[mid] for mid in member_ids if mid in self._servers]
+            if not members:
+                continue  # hide empty clusters (example data filtered when sim=OFF)
             cluster_groups.append({
                 "id": cluster["id"],
                 "name": cluster["name"],
@@ -319,6 +359,8 @@ class ServerManager:
             stopped_count=stopped,
             unknown_count=unknown,
             last_refresh=datetime.now(timezone.utc).isoformat(),
+            simulation_mode=self.config.get("app", {}).get("simulation_mode", True),
+            is_first_run=self._is_first_run(),
         )
 
     def get_sanitized_config(self) -> dict:
@@ -347,8 +389,15 @@ class ServerManager:
         import yaml, re
         from pathlib import Path
 
-        # Validate: id must be unique
-        if req.id in self._servers:
+        # Validate: id must be unique across both active inventory AND all YAML members
+        all_ids = set(self._servers.keys())
+        for _cl in self.config.get("clusters", []):
+            for _m in _cl.get("members", []):
+                all_ids.add(_m["id"])
+        for _sec in ("odr_servers", "iis_servers", "content_platform", "content_navigator"):
+            for _s in self.config.get(_sec, []):
+                all_ids.add(_s["id"])
+        if req.id in all_ids:
             return ActionResponse(
                 success=False,
                 message=f"Server id '{req.id}' already exists.",
@@ -376,6 +425,7 @@ class ServerManager:
             "host": req.host,
             "http_port": req.http_port,
             "https_port": req.https_port,
+            "user_added": True,  # mark as real server – visible when simulation is OFF
         }
 
         was_fields = {
@@ -423,7 +473,7 @@ class ServerManager:
             config_data = yaml.safe_load(raw)
 
             if srv_type == "websphere" and req.cluster_id:
-                # Add as a cluster member
+                # Try to add as a member of an existing cluster
                 added = False
                 for cluster in config_data.get("clusters", []):
                     if cluster["id"] == req.cluster_id:
@@ -434,12 +484,44 @@ class ServerManager:
                         added = True
                         break
                 if not added:
-                    return ActionResponse(
-                        success=False,
-                        message=f"Cluster '{req.cluster_id}' not found.",
-                        server_id=req.id,
-                        action="add",
-                    )
+                    # Cluster doesn't exist yet – create it with this server as first member
+                    member_entry = {k: v for k, v in entry.items()
+                                    if k not in ("was_home", "profile_name", "ssh_username",
+                                                 "ssh_key_env", "admin_username", "admin_password_env")}
+                    new_cluster = {
+                        "id": req.cluster_id,
+                        "name": req.cluster_id.replace("_", " ").title(),
+                        "site_id": req.site_id,
+                        "was_home": req.was_home,
+                        "profile_name": req.profile_name,
+                        "ssh_username": req.ssh_username,
+                        "ssh_key_env": req.ssh_key_env,
+                        "admin_username": req.admin_username,
+                        "admin_password_env": req.admin_password_env,
+                        "members": [member_entry],
+                    }
+                    config_data.setdefault("clusters", []).append(new_cluster)
+                    # Track new cluster in live config
+                    self.config.setdefault("clusters", []).append(new_cluster)
+            elif srv_type == "websphere":
+                # WAS without cluster_id – create a standalone single-server cluster
+                member_entry = {k: v for k, v in entry.items()
+                                if k not in ("was_home", "profile_name", "ssh_username",
+                                             "ssh_key_env", "admin_username", "admin_password_env")}
+                solo_cluster = {
+                    "id": f"cluster_{req.id}",
+                    "name": req.name,
+                    "site_id": req.site_id,
+                    "was_home": req.was_home,
+                    "profile_name": req.profile_name,
+                    "ssh_username": req.ssh_username,
+                    "ssh_key_env": req.ssh_key_env,
+                    "admin_username": req.admin_username,
+                    "admin_password_env": req.admin_password_env,
+                    "members": [member_entry],
+                }
+                config_data.setdefault("clusters", []).append(solo_cluster)
+                self.config.setdefault("clusters", []).append(solo_cluster)
             else:
                 config_data.setdefault(section, []).append(entry)
 
@@ -477,12 +559,28 @@ class ServerManager:
             cluster_name=None,
         )
 
-        # If added to a cluster, update its member list in config cache
+        # If added to a cluster, update its member list in live config cache
         if srv_type == "websphere" and req.cluster_id:
             for cluster in self.config.get("clusters", []):
                 if cluster["id"] == req.cluster_id:
                     info.cluster_name = cluster.get("name")
-                    cluster.setdefault("members", []).append({**entry, "id": req.id})
+                    # Only append if member isn't already present (prevents double-add
+                    # when we just created this cluster — it was already built with
+                    # the first member inside it)
+                    already_present = any(m.get("id") == req.id
+                                          for m in cluster.get("members", []))
+                    if not already_present:
+                        member_entry = {k: v for k, v in entry.items()
+                                        if k not in ("was_home", "profile_name", "ssh_username",
+                                                     "ssh_key_env", "admin_username", "admin_password_env")}
+                        cluster.setdefault("members", []).append(member_entry)
+                    break
+        elif srv_type == "websphere":
+            # Standalone – find the solo cluster just created
+            solo_id = f"cluster_{req.id}"
+            for cluster in self.config.get("clusters", []):
+                if cluster["id"] == solo_id:
+                    info.cluster_name = cluster.get("name")
                     break
         else:
             self.config.setdefault(section, []).append(entry)
@@ -538,3 +636,206 @@ class ServerManager:
         self._activity_log.insert(0, entry)
         if len(self._activity_log) > _MAX_LOG_ENTRIES:
             self._activity_log.pop()
+
+    # ── Setup helpers ─────────────────────────────────────────────────
+
+    def _is_first_run(self) -> bool:
+        """True when simulation is off but no real DMGR host is configured."""
+        sim = self.config.get("app", {}).get("simulation_mode", True)
+        if sim:
+            return False
+        dmgr_host = self.config.get("deployment_manager", {}).get("host", "")
+        return not dmgr_host or "company.com" in dmgr_host
+
+    def update_dmgr_settings(self, settings: dict) -> bool:
+        """Write DMGR connection details to environment.yml and update live config."""
+        import yaml
+        path = self._find_config_path()
+        with open(path, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f)
+        if "deployment_manager" not in raw:
+            raw["deployment_manager"] = {}
+        for key, value in settings.items():
+            if value is not None:
+                raw["deployment_manager"][key] = value
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump(raw, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        # Update live config
+        if "deployment_manager" not in self.config:
+            self.config["deployment_manager"] = {}
+        self.config["deployment_manager"].update(
+            {k: v for k, v in settings.items() if v is not None}
+        )
+        logger.info("DMGR settings updated: host=%s", settings.get("host"))
+        return True
+
+    def set_simulation_mode(self, enabled: bool) -> bool:
+        """Toggle simulation_mode in environment.yml and update live config."""
+        import yaml
+        path = self._find_config_path()
+        with open(path, "r", encoding="utf-8") as f:
+            raw = yaml.safe_load(f)
+        if "app" not in raw:
+            raw["app"] = {}
+        raw["app"]["simulation_mode"] = enabled
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump(raw, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        # Update live config
+        self.config["app"]["simulation_mode"] = enabled
+        # Rebuild inventory so server visibility changes take effect immediately
+        self._simulation = enabled
+        self._servers.clear()
+        self._server_raw.clear()
+        self._sim_states.clear()
+        self._build_inventory()
+        logger.info("Simulation mode set to %s, inventory rebuilt (%d servers)",
+                    enabled, len(self._servers))
+        return True
+
+    def set_daily_schedule(self, server_id: str, schedule: dict) -> ActionResponse:
+        """Persist per-server daily schedule to YAML and live config.
+
+        schedule: {enabled: bool, action: start|stop|restart, time: HH:MM}
+        """
+        import re
+        import yaml
+
+        info = self._servers.get(server_id)
+        if not info:
+            return ActionResponse(success=False, message=f"Server {server_id} not found",
+                                  server_id=server_id, action="set-daily-schedule")
+
+        action = (schedule.get("action") or "").strip().lower()
+        time_str = (schedule.get("time") or "").strip()
+        enabled = bool(schedule.get("enabled", True))
+
+        if action not in {"start", "stop", "restart"}:
+            return ActionResponse(success=False, message="Action must be start, stop, or restart",
+                                  server_id=server_id, action="set-daily-schedule")
+        if not re.match(r"^([01]\d|2[0-3]):[0-5]\d$", time_str):
+            return ActionResponse(success=False, message="Time must be HH:MM in 24-hour format",
+                                  server_id=server_id, action="set-daily-schedule")
+
+        path = self._find_config_path()
+        with open(path, "r", encoding="utf-8") as f:
+            raw_cfg = yaml.safe_load(f)
+
+        found = False
+
+        # WAS cluster members
+        for cluster in raw_cfg.get("clusters", []):
+            for member in cluster.get("members", []):
+                if member.get("id") == server_id:
+                    member["auto_schedule"] = {
+                        "enabled": enabled,
+                        "action": action,
+                        "time": time_str,
+                        "last_run_date": member.get("auto_schedule", {}).get("last_run_date"),
+                    }
+                    found = True
+                    break
+            if found:
+                break
+
+        # Flat sections
+        if not found:
+            for section in ("odr_servers", "iis_servers", "content_platform", "content_navigator"):
+                for entry in raw_cfg.get(section, []):
+                    if entry.get("id") == server_id:
+                        entry["auto_schedule"] = {
+                            "enabled": enabled,
+                            "action": action,
+                            "time": time_str,
+                            "last_run_date": entry.get("auto_schedule", {}).get("last_run_date"),
+                        }
+                        found = True
+                        break
+                if found:
+                    break
+
+        if not found:
+            return ActionResponse(success=False, message=f"Server {server_id} not found in config",
+                                  server_id=server_id, action="set-daily-schedule")
+
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump(raw_cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+        # Update live config and inventory views immediately
+        self.config = raw_cfg
+        self._servers.clear()
+        self._server_raw.clear()
+        self._build_inventory()
+
+        return ActionResponse(
+            success=True,
+            message=(f"Daily {action} schedule set at {time_str}"
+                     if enabled else "Daily schedule disabled"),
+            server_id=server_id,
+            action="set-daily-schedule",
+        )
+
+    async def run_due_daily_schedules(self):
+        """Run server daily schedules when local time HH:MM matches and not yet run today."""
+        import yaml
+
+        now = datetime.now()
+        now_hhmm = now.strftime("%H:%M")
+        today = now.strftime("%Y-%m-%d")
+
+        due_ids: list[tuple[str, str]] = []
+        for sid, raw in self._server_raw.items():
+            sched = raw.get("auto_schedule", {}) if isinstance(raw, dict) else {}
+            if not isinstance(sched, dict):
+                continue
+            if not sched.get("enabled", False):
+                continue
+            if sched.get("time") != now_hhmm:
+                continue
+            if sched.get("last_run_date") == today:
+                continue
+            action = str(sched.get("action", "restart")).lower()
+            if action in {"start", "stop", "restart"}:
+                due_ids.append((sid, action))
+
+        if not due_ids:
+            return
+
+        path = self._find_config_path()
+        with open(path, "r", encoding="utf-8") as f:
+            raw_cfg = yaml.safe_load(f)
+
+        # Execute then stamp last_run_date so action runs once per day.
+        for sid, action in due_ids:
+            try:
+                await self._perform_action(sid, action)
+            except Exception as exc:
+                logger.error("Daily schedule action failed for %s: %s", sid, exc)
+
+            stamped = False
+            for cluster in raw_cfg.get("clusters", []):
+                for member in cluster.get("members", []):
+                    if member.get("id") == sid:
+                        member.setdefault("auto_schedule", {})["last_run_date"] = today
+                        stamped = True
+                        break
+                if stamped:
+                    break
+            if not stamped:
+                for section in ("odr_servers", "iis_servers", "content_platform", "content_navigator"):
+                    for entry in raw_cfg.get(section, []):
+                        if entry.get("id") == sid:
+                            entry.setdefault("auto_schedule", {})["last_run_date"] = today
+                            stamped = True
+                            break
+                    if stamped:
+                        break
+
+        with open(path, "w", encoding="utf-8") as f:
+            yaml.dump(raw_cfg, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+
+        # Keep in-memory config/raw in sync.
+        self.config = raw_cfg
+        for sid, _ in due_ids:
+            raw = self._server_raw.get(sid)
+            if isinstance(raw, dict):
+                raw.setdefault("auto_schedule", {})["last_run_date"] = today

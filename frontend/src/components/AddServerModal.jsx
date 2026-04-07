@@ -50,6 +50,8 @@ export default function AddServerModal({ onClose, onAdded, sites: propSites, pre
   const [errors, setErrors] = useState({})
   const [busy, setBusy] = useState(false)
   const [serverError, setServerError] = useState(null)
+  const [newClusterMode, setNewClusterMode] = useState(false)
+  const [newClusterId, setNewClusterId] = useState('')
 
   // Load sites + clusters from backend
   useEffect(() => {
@@ -85,8 +87,16 @@ export default function AddServerModal({ onClose, onAdded, sites: propSites, pre
       if (!form.winrm_username.trim()) e.winrm_username = 'Required for IIS'
       if (!form.winrm_password_env.trim()) e.winrm_password_env = 'Required for IIS'
     }
-    if (form.type === 'websphere' && form.cluster_id && !form.server_name.trim()) {
-      e.server_name = 'Required when adding to a cluster'
+    if (form.type === 'websphere') {
+      const effectiveCluster = newClusterMode ? newClusterId.trim() : form.cluster_id
+      if (effectiveCluster && !form.server_name.trim()) {
+        e.server_name = 'Required when adding to a cluster'
+      }
+      if (newClusterMode && !newClusterId.trim()) {
+        e.newClusterId = 'Cluster ID is required'
+      } else if (newClusterMode && !/^[a-z0-9_-]+$/.test(newClusterId.trim())) {
+        e.newClusterId = 'Only lowercase letters, numbers, _ and - allowed'
+      }
     }
     setErrors(e)
     return Object.keys(e).length === 0
@@ -98,14 +108,16 @@ export default function AddServerModal({ onClose, onAdded, sites: propSites, pre
     setBusy(true)
     setServerError(null)
     try {
+      const effectiveClusterId = form.type === 'websphere'
+        ? (newClusterMode ? newClusterId.trim() || null : form.cluster_id || null)
+        : null
       const payload = {
         ...form,
         http_port: Number(form.http_port) || 9080,
         https_port: Number(form.https_port) || 9443,
         winrm_port: Number(form.winrm_port) || 5985,
-        // clean empty strings → null
         admin_url: form.admin_url || null,
-        cluster_id: form.cluster_id || null,
+        cluster_id: effectiveClusterId,
         winrm_username: form.winrm_username || null,
         winrm_password_env: form.winrm_password_env || null,
       }
@@ -225,21 +237,68 @@ export default function AddServerModal({ onClose, onAdded, sites: propSites, pre
 
           {/* WAS cluster membership */}
           {isWAS && (
-            <Field
-              label="Add to Cluster"
-              hint="Select an existing cluster, or leave blank to add as a standalone WAS"
-            >
-              <select
-                className="form-select"
-                value={form.cluster_id}
-                onChange={e => set('cluster_id', e.target.value)}
+            <div className="space-y-2">
+              <Field
+                label="Cluster"
+                hint={newClusterMode ? 'A new cluster will be created with this ID' : 'Select an existing cluster or create a new one'}
+                error={errors.newClusterId}
               >
-                <option value="">— Standalone (not in a cluster) —</option>
-                {clusters.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-            </Field>
+                {!newClusterMode ? (
+                  <div className="flex gap-2">
+                    <select
+                      className="form-select flex-1"
+                      value={form.cluster_id}
+                      onChange={e => set('cluster_id', e.target.value)}
+                    >
+                      <option value="">— Standalone (not in a cluster) —</option>
+                      {clusters.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => { setNewClusterMode(true); set('cluster_id', '') }}
+                      className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-700
+                                 text-white rounded-lg transition-colors whitespace-nowrap"
+                    >
+                      + New Cluster
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <input
+                        className="form-input font-mono flex-1"
+                        placeholder="my_cluster_primary"
+                        value={newClusterId}
+                        onChange={e => {
+                          const v = e.target.value.replace(/\s/g, '_').toLowerCase()
+                          setNewClusterId(v)
+                          setErrors(err => ({ ...err, newClusterId: null }))
+                        }}
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={() => { setNewClusterMode(false); setNewClusterId('') }}
+                        className="shrink-0 px-3 py-1.5 text-xs font-semibold bg-slate-200 hover:bg-slate-300
+                                   text-slate-700 rounded-lg transition-colors whitespace-nowrap"
+                      >
+                        Use existing
+                      </button>
+                    </div>
+                    {errors.newClusterId && (
+                      <p className="text-xs text-rose-600">{errors.newClusterId}</p>
+                    )}
+                    <p className="text-xs text-slate-500">
+                      Cluster name: <span className="font-semibold text-slate-700">
+                        {newClusterId ? newClusterId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : '—'}
+                      </span>
+                    </p>
+                  </div>
+                )}
+              </Field>
+            </div>
           )}
 
           {/* WAS / ODR / CPE / ICN fields */}

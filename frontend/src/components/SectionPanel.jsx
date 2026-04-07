@@ -8,10 +8,9 @@ import ServerCard from './ServerCard.jsx'
 export default function SectionPanel({ title, icon: Icon, servers, onAction, onToast, onAdd, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
 
-  if (!servers || servers.length === 0) return null
-
-  const runningCount = servers.filter(s => s.status === 'running').length
-  const stoppedCount = servers.filter(s => s.status === 'stopped').length
+  const isEmpty = !servers || servers.length === 0
+  const runningCount = isEmpty ? 0 : servers.filter(s => s.status === 'running').length
+  const stoppedCount = isEmpty ? 0 : servers.filter(s => s.status === 'stopped').length
 
   return (
     <section className="mb-6">
@@ -23,7 +22,9 @@ export default function SectionPanel({ title, icon: Icon, servers, onAction, onT
         <div className="flex items-center gap-2 flex-1 min-w-0">
           {Icon && <Icon size={17} className="text-slate-500 shrink-0" />}
           <h2 className="font-semibold text-slate-700 text-sm uppercase tracking-wide">{title}</h2>
-          <span className="text-slate-400 text-xs ml-1">({servers.length})</span>
+          {!isEmpty && (
+            <span className="text-slate-400 text-xs ml-1">({servers.length})</span>
+          )}
 
           {/* Mini status pill */}
           <span className="ml-2 flex items-center gap-2 text-xs">
@@ -54,16 +55,27 @@ export default function SectionPanel({ title, icon: Icon, servers, onAction, onT
       </button>
 
       {open && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {servers.map(server => (
-            <ServerCard
-              key={server.id}
-              server={server}
-              onAction={onAction}
-              onToast={onToast}
-            />
-          ))}
-        </div>
+        isEmpty ? (
+          <div className="text-center py-6 text-slate-400 border border-dashed border-slate-200 rounded-xl">
+            <p className="text-sm">No servers yet.</p>
+            {onAdd && (
+              <button onClick={onAdd} className="mt-2 text-xs text-blue-600 hover:text-blue-800 font-semibold underline">
+                Add the first one
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {servers.map(server => (
+              <ServerCard
+                key={server.id}
+                server={server}
+                onAction={onAction}
+                onToast={onToast}
+              />
+            ))}
+          </div>
+        )
       )}
     </section>
   )

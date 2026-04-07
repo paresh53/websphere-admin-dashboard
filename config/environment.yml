@@ -3,18 +3,18 @@ app:
   title: IBM Middleware Administration
   refresh_interval: 30
   backend_port: 8000
-  simulation_mode: true
+  simulation_mode: false
   auth_enabled: false
   auth_username: admin
   auth_password_env: DASHBOARD_PASSWORD
 deployment_manager:
-  host: dmgr01.company.com
+  host: ASDA
   soap_port: 8879
   admin_http_port: 9060
   admin_https_port: 9043
   admin_username: wsadmin
   admin_password_env: DMGR_PASSWORD
-  cell_name: MYCell01
+  cell_name: SADAS
   was_home: /opt/IBM/WebSphere/AppServer
   profile_name: Dmgr01
   ssh_username: wasadmin
@@ -93,6 +93,49 @@ clusters:
     host: was-dr02.company.com
     http_port: 9080
     https_port: 9443
+- id: cluster_sasd
+  name: asd
+  site_id: primary
+  was_home: /opt/IBM/WebSphere/AppServer
+  profile_name: AppSrv01
+  ssh_username: wasadmin
+  ssh_key_env: WAS_SSH_KEY_PATH
+  admin_username: wsadmin
+  admin_password_env: DMGR_PASSWORD
+  members:
+  - id: sasd
+    name: asd
+    site_id: primary
+    host: sadas
+    http_port: 9080
+    https_port: 9443
+    user_added: true
+    server_name: S
+    node_name: SNode
+    auto_schedule:
+      enabled: true
+      action: restart
+      time: '17:00'
+      last_run_date: null
+- id: appcluster01
+  name: Appcluster01
+  site_id: primary
+  was_home: /opt/IBM/WebSphere/AppServer
+  profile_name: AppSrv01
+  ssh_username: wasadmin
+  ssh_key_env: WAS_SSH_KEY_PATH
+  admin_username: wsadmin
+  admin_password_env: DMGR_PASSWORD
+  members:
+  - id: SADAS
+    name: ASA
+    site_id: primary
+    host: SDAS
+    http_port: 9080
+    https_port: 9443
+    user_added: true
+    server_name: SDAS
+    node_name: ASDAS
 odr_servers:
 - id: odr_p01
   name: ODR-P01

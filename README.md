@@ -7,6 +7,26 @@
 
 ---
 
+## Operator Quick Start (Config Only)
+
+Use this checklist if you are an operator/admin and do not write code.
+
+1. Install Python 3.10+ and Node.js 18+.
+2. Download or clone the project to `C:\websphere-admin-dashboard`.
+3. Run `setup.bat` once.
+4. Run `start.bat`.
+5. Open `http://localhost:8000`.
+6. Change only these files when needed:
+  - `config\environment.yml`
+  - `backend\.env`
+7. Add servers/clusters from the UI using `+ Add` and `+ New Cluster`.
+8. Do not edit source code under:
+  - `backend\` (except `backend\.env`)
+  - `frontend\`
+  - `java\`
+
+---
+
 ## Table of Contents
 
 1. [What This Tool Does](#1-what-this-tool-does)
@@ -146,6 +166,52 @@ Verify: `docker --version`
 
 ## 4. Installation and First Run
 
+### Step-by-step for a new user (from scratch)
+
+Use these exact steps when someone new needs to run the dashboard for the first time.
+
+Config-only rule for users:
+- Users should not edit source code.
+- Users should only change configuration values in `config\environment.yml` and `backend\.env`.
+- If a new server is needed, use the dashboard UI (`+ Add`) instead of editing Python/React/Java files.
+
+1. Install prerequisites on Windows:
+  - Python 3.10+
+  - Node.js 18+
+  - (Optional) Git
+2. Get the code:
+  - Clone: `git clone https://github.com/paresh53/websphere-admin-dashboard.git`
+  - Or download ZIP and extract to `C:\websphere-admin-dashboard`
+3. Open Command Prompt or PowerShell in the project root folder.
+4. Run one-time setup:
+  - `setup.bat`
+  - This creates `backend\venv`, installs backend + frontend dependencies, builds frontend, and creates `backend\.env` if missing.
+5. Start the app:
+  - `start.bat`
+6. Open the dashboard:
+  - `http://localhost:8000`
+7. Confirm the app is healthy:
+  - `http://localhost:8000/health` should return `{\"status\":\"ok\"}`
+8. Keep simulation ON for a first demo run.
+9. When ready for real servers, turn simulation OFF from the banner or set in config:
+  - In `config\environment.yml` set `app.simulation_mode: false`
+10. Fill real environment values:
+   - `deployment_manager.host` and `deployment_manager.cell_name`
+   - Password env vars in `backend\.env` (never plain passwords in YAML)
+11. Add servers from the UI using `+ Add` in each section.
+12. For WAS servers, either:
+   - choose an existing cluster, or
+   - click `+ New Cluster` in the Add Server dialog and create one.
+
+Do not edit code files during normal operations:
+- Do not modify anything under `backend\` (except `backend\.env`)
+- Do not modify anything under `frontend\`
+- Do not modify anything under `java\`
+
+Important behavior when simulation is OFF:
+- The dashboard shows only real/user-added servers.
+- Example/demo servers are hidden.
+
 ### Step 1 – Download the project
 
 **Option A – Clone from GitHub**
@@ -196,6 +262,15 @@ touched.
 ---
 
 ## 5. Configuring Your Environment
+
+### Important: Users should update config only
+
+For daily operations and onboarding, users must update only:
+- `config\environment.yml`
+- `backend\.env`
+
+Users should not make source-code changes in `backend\`, `frontend\`, or `java\`.
+All normal tasks (switch simulation mode, add servers, create clusters, update endpoints and credentials) are supported through config values and the dashboard UI.
 
 All configuration lives in **one file**: `config\environment.yml`
 
@@ -344,6 +419,37 @@ dist\was-dashboard\was-dashboard.exe
 To distribute to another machine: copy the entire `dist\was-dashboard\` folder.
 Edit the `config\environment.yml` inside that folder for the target environment.
 
+### Option C1 – Windows Service (no runtime install on target machine)
+
+This option lets operators run the dashboard as a background Windows service
+without installing Python/Node/Java on the target server.
+
+Build machine (one-time by maintainer):
+1. Build EXE bundle:
+  - `build-app.bat`
+2. Package zip artifact:
+  - `package-service-bundle.bat`
+3. Upload `release\was-dashboard-windows.zip` to GitHub Releases or internal artifact storage.
+
+Target machine (operator):
+1. Run as Administrator:
+  - `deploy-service.bat <bundle-url>`
+2. If URL is omitted, script uses default release URL.
+3. Service name:
+  - `WASDashboard`
+4. Install location:
+  - `%ProgramData%\WASDashboard`
+5. Open:
+  - `http://localhost:8000`
+
+Uninstall service:
+- Run as Administrator: `uninstall-service.bat`
+
+Notes:
+- Target machine needs no Python/Node/Java installation.
+- Service registration requires Administrator rights.
+- Users still only update `config\environment.yml` and `backend\.env` in deployed folder.
+
 ### Option D – Docker
 
 ```bat
@@ -441,6 +547,43 @@ Each server shows:
 4. Click **Confirm** to proceed or **Cancel**
 5. A toast notification (top-right) confirms success or shows an error
 6. The card status updates automatically
+
+### Auto Start/Stop timer (with live countdown)
+
+Each server card now includes an **Auto Action Timer**.
+
+1. In a server card, find **Auto Action Timer**.
+2. Choose action: **Start** or **Stop**.
+3. Enter delay in seconds (for example `300` for 5 minutes).
+4. Click **Set Timer**.
+5. The card shows a live countdown, for example:
+  - `Auto stop in 04:59`
+6. When countdown reaches zero, the action runs automatically.
+7. To cancel before execution, click **Cancel** on the same card.
+
+Notes:
+- Timer is per server card and runs in the open browser session.
+- If you refresh/close the browser tab, scheduled timers are cleared.
+
+### Daily automatic schedule (persistent)
+
+Use this when you want the same action every day, for example:
+- stop and restart automatically at **5:00 PM** daily.
+
+How to set it:
+1. Open the server card.
+2. In **Daily Schedule**, enable the toggle.
+3. Select action:
+  - `restart` (recommended for stop+start cycle)
+  - or `stop` / `start`
+4. Set time to `17:00` (5 PM).
+5. Click **Save Daily**.
+6. The card shows a continuously updating countdown to next run.
+
+How it runs:
+- The schedule is saved in `config\environment.yml` for that server.
+- Backend executes the action once per day at the configured time.
+- `restart` performs automated restart flow for that server.
 
 ### Site tabs
 
@@ -803,6 +946,8 @@ integrate the dashboard with monitoring tools, CI/CD pipelines, or scripts.
 | **POST** | **`/api/servers/add`** | **Add a new server (writes to YAML + hot-reloads)** |
 | GET | `/api/sites` | List of configured sites (for the Add Server form) |
 | GET | `/api/clusters/list` | List of cluster ids/names (for the Add Server form) |
+| PATCH | `/api/settings/simulation` | Toggle simulation mode on/off (persists to YAML) |
+| PATCH | `/api/settings/dmgr` | Update Deployment Manager connection details |
 
 **Example – check if a server is running:**
 ```bash
@@ -874,7 +1019,12 @@ java -version
 Must be Java 17 or newer. Update from https://adoptium.net/
 
 ### Changes to `environment.yml` not showing
-Restart the backend – it reads the config once at startup, not on the fly.
+- **Added via the UI / API** – changes are hot-loaded instantly; no restart needed.
+- **Edited the YAML file directly** – the backend reads the file once at startup. Restart to pick up manual edits:
+  ```bat
+  :: Stop the running backend (Ctrl+C in its terminal) then:
+  start.bat
+  ```
 
 ---
 

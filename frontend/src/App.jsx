@@ -6,6 +6,8 @@ import Navbar from './components/Navbar.jsx'
 import Dashboard from './components/Dashboard.jsx'
 import ActivityLog from './components/ActivityLog.jsx'
 import AddServerModal from './components/AddServerModal.jsx'
+import SimulationBanner from './components/SimulationBanner.jsx'
+import SetupWizard from './components/SetupWizard.jsx'
 import { fetchStatus, fetchLogs, triggerRefresh } from './services/api.js'
 
 const REFRESH_MS = 30_000  // fallback; overridden by config refresh_interval
@@ -19,6 +21,8 @@ export default function App() {
   const [toast, setToast] = useState(null)
   const [showLog, setShowLog] = useState(false)
   const [addModal, setAddModal] = useState({ open: false, presetType: null })
+  const [showWizard, setShowWizard] = useState(false)
+  const [simMode, setSimMode] = useState(true)   // mirrors data.simulation_mode
 
   const openAddServer = (presetType = null) =>
     setAddModal({ open: true, presetType })
@@ -34,6 +38,7 @@ export default function App() {
     try {
       const [statusData, logData] = await Promise.all([fetchStatus(), fetchLogs()])
       setData(statusData)
+      setSimMode(statusData.simulation_mode ?? true)
       setLogs(logData)
       setError(null)
     } catch (err) {
@@ -76,6 +81,14 @@ export default function App() {
         unknownCount={data?.unknown_count ?? 0}
       />
 
+      <SimulationBanner
+        simulationMode={simMode}
+        isFirstRun={data?.is_first_run ?? false}
+        totalServers={data?.total_servers ?? 0}
+        onModeChanged={(m) => { setSimMode(m); loadData(true) }}
+        onSetupRequired={() => setShowWizard(true)}
+      />
+
       <main className="flex-1 max-w-screen-2xl mx-auto w-full px-4 py-6">
         {error && (
           <div className="mb-4 bg-rose-50 border border-rose-300 text-rose-800 rounded-xl px-5 py-3 text-sm font-medium">
@@ -113,6 +126,13 @@ export default function App() {
           presetType={addModal.presetType}
           onClose={() => setAddModal({ open: false, presetType: null })}
           onAdded={handleServerAdded}
+        />
+      )}
+
+      {showWizard && (
+        <SetupWizard
+          onClose={() => { setShowWizard(false); loadData(true) }}
+          onFinish={() => { setShowWizard(false); loadData(true) }}
         />
       )}
     </div>
