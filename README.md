@@ -11,10 +11,12 @@
 
 Use this checklist if you are an operator/admin and do not write code.
 
-1. Install Python 3.10+ and Node.js 18+.
-2. Download or clone the project to `C:\websphere-admin-dashboard`.
-3. Run `setup.bat` once.
-4. Run `start.bat`.
+1. Use the standalone EXE or Windows Service path for target servers.
+2. Do not install Python, Node.js, or Java on the target server.
+3. Get the prepared bundle (`was-dashboard-windows.zip`) from maintainer release artifacts.
+4. On target server, either:
+  - Run `dist\was-dashboard\was-dashboard.exe`, or
+  - Run `deploy-service.bat <bundle-url>` as Administrator.
 5. Open `http://localhost:8000`.
 6. Change only these files when needed:
   - `config\environment.yml`
@@ -170,12 +172,36 @@ Verify: `docker --version`
 
 Use these exact steps when someone new needs to run the dashboard for the first time.
 
+### Path A (recommended): No-install on target server
+
+This is the preferred operator path.
+
+Target server requirements:
+- No Python install
+- No Node.js install
+- No Java install
+
+Steps:
+1. Get `was-dashboard-windows.zip` from a release/artifact link.
+2. Extract it on the target server.
+3. Update only:
+  - `config\environment.yml`
+  - `backend\.env`
+4. Start one of these ways:
+  - EXE mode: run `dist\was-dashboard\was-dashboard.exe`
+  - Service mode: run `deploy-service.bat <bundle-url>` as Administrator
+5. Open `http://localhost:8000`.
+
+### Path B: Developer/build-machine mode
+
+Use this only on machines where you are building from source.
+
 Config-only rule for users:
 - Users should not edit source code.
 - Users should only change configuration values in `config\environment.yml` and `backend\.env`.
 - If a new server is needed, use the dashboard UI (`+ Add`) instead of editing Python/React/Java files.
 
-1. Install prerequisites on Windows:
+1. Install prerequisites on Windows (build machine only):
   - Python 3.10+
   - Node.js 18+
   - (Optional) Git
@@ -225,7 +251,7 @@ Download the ZIP from GitHub → Extract to `C:\websphere-admin-dashboard\`
 
 ---
 
-### Step 2 – One-time setup (Python version only)
+### Step 2 – One-time setup (Python version only, build machine)
 
 Run the setup script from the project root:
 
