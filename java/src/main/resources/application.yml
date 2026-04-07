@@ -1,0 +1,35 @@
+server:
+  port: ${BACKEND_PORT:8000}
+
+spring:
+  application:
+    name: was-admin-dashboard
+  # Disable auto-detection of content negotiation for SPA
+  mvc:
+    throw-exception-if-no-handler-found: false
+  web:
+    resources:
+      add-mappings: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.ibm.was.dashboard: INFO
+    root: WARN
+
+# Path to the environment config YAML.
+# Resolution order:
+#   1. System property:  -Dwas.dashboard.config=/path/to/environment.yml
+#   2. Env variable:     WAS_DASHBOARD_CONFIG=/path/to/environment.yml
+#   3. Default:          ./config/environment.yml  (working directory)
+was:
+  dashboard:
+    config: ${WAS_DASHBOARD_CONFIG:${was.dashboard.config:config/environment.yml}}

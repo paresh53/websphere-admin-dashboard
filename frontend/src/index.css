@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-slate-100 text-slate-800 antialiased;
+    font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium
+           transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-start  { @apply btn bg-emerald-600 text-white hover:bg-emerald-700 focus:ring-emerald-500; }
+  .btn-stop   { @apply btn bg-rose-600 text-white hover:bg-rose-700 focus:ring-rose-500; }
+  .btn-restart { @apply btn bg-amber-500 text-white hover:bg-amber-600 focus:ring-amber-400; }
+  .btn-ghost  { @apply btn bg-slate-200 text-slate-700 hover:bg-slate-300 focus:ring-slate-400; }
+  .btn-blue   { @apply btn bg-blue-700 text-white hover:bg-blue-800 focus:ring-blue-500; }
+
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-slate-200 p-4
+           hover:shadow-md transition-shadow duration-200;
+  }
+
+  .status-dot-running  { @apply inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse; }
+  .status-dot-stopped  { @apply inline-block w-2.5 h-2.5 rounded-full bg-rose-500; }
+  .status-dot-unknown  { @apply inline-block w-2.5 h-2.5 rounded-full bg-slate-400; }
+  .status-dot-starting { @apply inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse; }
+  .status-dot-error    { @apply inline-block w-2.5 h-2.5 rounded-full bg-orange-500; }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .badge-primary { @apply badge bg-blue-100 text-blue-800; }
+  .badge-dr      { @apply badge bg-purple-100 text-purple-800; }
+  .badge-running { @apply badge bg-emerald-100 text-emerald-800; }
+  .badge-stopped { @apply badge bg-rose-100 text-rose-800; }
+  .badge-unknown { @apply badge bg-slate-100 text-slate-600; }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar       { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }

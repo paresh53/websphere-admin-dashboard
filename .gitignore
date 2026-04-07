@@ -1,0 +1,39 @@
+# ── Secrets (NEVER commit) ────────────────────────────────────────
+backend/.env
+*.env
+
+# ── Python ────────────────────────────────────────────────────────
+backend/venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+
+# ── PyInstaller output ────────────────────────────────────────────
+dist/
+build/
+*.spec.bak
+
+# ── Node / React ──────────────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+
+# ── Java / Maven ──────────────────────────────────────────────────
+java/target/
+java/src/main/resources/static/
+*.class
+*.jar
+*.war
+!java/pom.xml
+
+# ── IDE ───────────────────────────────────────────────────────────
+.idea/
+.vscode/settings.json
+*.iml
+*.iws
+
+# ── OS ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.log

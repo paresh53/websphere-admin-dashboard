@@ -1,0 +1,59 @@
+/**
+ * SectionPanel – collapsible panel that groups server cards by type.
+ */
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
+import ServerCard from './ServerCard.jsx'
+
+export default function SectionPanel({ title, icon: Icon, servers, onAction, onToast, defaultOpen = true }) {
+  const [open, setOpen] = useState(defaultOpen)
+
+  if (!servers || servers.length === 0) return null
+
+  const runningCount = servers.filter(s => s.status === 'running').length
+  const stoppedCount = servers.filter(s => s.status === 'stopped').length
+
+  return (
+    <section className="mb-6">
+      {/* Section header */}
+      <button
+        className="w-full flex items-center gap-2 mb-3 group"
+        onClick={() => setOpen(v => !v)}
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {Icon && <Icon size={17} className="text-slate-500 shrink-0" />}
+          <h2 className="font-semibold text-slate-700 text-sm uppercase tracking-wide">{title}</h2>
+          <span className="text-slate-400 text-xs ml-1">({servers.length})</span>
+
+          {/* Mini status pill */}
+          <span className="ml-2 flex items-center gap-2 text-xs">
+            {runningCount > 0 && (
+              <span className="badge-running">{runningCount} running</span>
+            )}
+            {stoppedCount > 0 && (
+              <span className="badge-stopped">{stoppedCount} stopped</span>
+            )}
+          </span>
+        </div>
+        {open ? (
+          <ChevronDown size={16} className="text-slate-400 group-hover:text-slate-600" />
+        ) : (
+          <ChevronRight size={16} className="text-slate-400 group-hover:text-slate-600" />
+        )}
+      </button>
+
+      {open && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {servers.map(server => (
+            <ServerCard
+              key={server.id}
+              server={server}
+              onAction={onAction}
+              onToast={onToast}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}

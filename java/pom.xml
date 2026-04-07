@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.3.0</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.ibm.was</groupId>
+  <artifactId>dashboard</artifactId>
+  <version>1.0.0</version>
+  <name>WebSphere Admin Dashboard</name>
+  <description>Clustered IBM WebSphere / ODR / IIS / CPE / ICN Administration Dashboard</description>
+  <packaging>${packaging.type}</packaging>
+
+  <properties>
+    <java.version>17</java.version>
+    <packaging.type>jar</packaging.type>
+    <!--  Override with: mvn package -Dpackaging.type=war  -->
+  </properties>
+
+  <dependencies>
+    <!-- Spring Boot Web (embedded Tomcat) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+
+    <!-- Actuator – /actuator/health used internally -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- SnakeYAML – for loading config/environment.yml -->
+    <dependency>
+      <groupId>org.yaml</groupId>
+      <artifactId>snakeyaml</artifactId>
+    </dependency>
+
+    <!-- JSch – SSH to WAS/ODR/CPE/ICN nodes (maintained fork) -->
+    <dependency>
+      <groupId>com.github.mwiede</groupId>
+      <artifactId>jsch</artifactId>
+      <version>0.2.19</version>
+    </dependency>
+
+    <!-- Apache HttpClient 5 – WinRM NTLM for IIS -->
+    <dependency>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
+      <version>5.3.1</version>
+    </dependency>
+
+    <!-- For WAR packaging: mark embedded Tomcat as provided -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-tomcat</artifactId>
+      <scope>${tomcat.scope}</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <profiles>
+    <!-- ─── JAR (default): java -jar was-dashboard.jar ─────────── -->
+    <profile>
+      <id>jar</id>
+      <activation><activeByDefault>true</activeByDefault></activation>
+      <properties>
+        <packaging.type>jar</packaging.type>
+        <tomcat.scope>compile</tomcat.scope>
+      </properties>
+    </profile>
+
+    <!-- ─── WAR: deploy to WebSphere / Tomcat ───────────────────── -->
+    <profile>
+      <id>war</id>
+      <properties>
+        <packaging.type>war</packaging.type>
+        <tomcat.scope>provided</tomcat.scope>
+      </properties>
+    </profile>
+  </profiles>
+
+  <build>
+    <finalName>was-dashboard</finalName>
+    <plugins>
+      <!-- Spring Boot fat JAR / WAR repackaging -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </exclude>
+          </excludes>
+        </configuration>
+      </plugin>
+
+      <!-- Copy React build into static resources before compiling -->
+      <plugin>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-react-build</id>
+            <phase>generate-resources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.basedir}/src/main/resources/static</outputDirectory>
+              <overwrite>true</overwrite>
+              <resources>
+                <resource>
+                  <directory>${project.basedir}/../frontend/dist</directory>
+                  <filtering>false</filtering>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+
+  <repositories>
+    <repository>
+      <id>central</id>
+      <url>https://repo1.maven.org/maven2</url>
+    </repository>
+  </repositories>
+</project>

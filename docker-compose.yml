@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: was-dashboard-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config:ro        # live-reload config changes
+    env_file:
+      - ./backend/.env
+    environment:
+      - BACKEND_PORT=8000
+    networks:
+      - dashboard
+
+  frontend:
+    image: nginx:1.25-alpine
+    container_name: was-dashboard-ui
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - dashboard
+
+networks:
+  dashboard:
+    driver: bridge
