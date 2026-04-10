@@ -187,10 +187,10 @@ class ServerManager:
 
     # ── Status checking ──────────────────────────────────────────────
 
-    async def check_server_status(self, server_id: str) -> dict:
+    async def check_server_status(self, server_id: str, max_retries: int = 2) -> dict:
         info = self._servers.get(server_id)
         if not info:
-            return {"error": f"Server {server_id} not found"}
+            return {"error": f"Server '{server_id}' not found in inventory"}
 
         status, message = await asyncio.get_event_loop().run_in_executor(
             None, self._sync_check_status, server_id
@@ -284,6 +284,9 @@ class ServerManager:
         return ActionResponse(success=ok, message=msg, server_id=server_id, action=action)
 
     def _sync_action(self, server_id: str, action: str) -> tuple:
+        if server_id not in self._servers:
+            return False, f"Server '{server_id}' not found"
+        
         info = self._servers[server_id]
         raw = self._server_raw[server_id]
 
@@ -294,8 +297,13 @@ class ServerManager:
 
         fn = getattr(client, f"{action}_server", None)
         if fn is None:
-            return False, f"Action '{action}' not supported"
-        return fn(raw)
+            return False, f"Operation '{action}' not supported for {info.type.value}"
+        
+        try:
+            return fn(raw)
+        except Exception as exc:
+            logger.error(f"Action {action} on {server_id} failed: {exc}", exc_info=True)
+            return False, f"Operation failed: {str(exc)[:100]}"
 
     # ── Query helpers ────────────────────────────────────────────────
 

@@ -10,9 +10,11 @@ from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pathlib import Path
+import time
 
 from config_loader import load_config
 from models import (
@@ -59,8 +61,9 @@ async def _poll_loop(mgr: ServerManager):
         try:
             await mgr.run_due_daily_schedules()
             await mgr.refresh_all_statuses()
+            logger.debug(f"Status poll complete – {len(mgr.get_all_servers())} servers checked")
         except Exception as exc:
-            logger.error("Polling error: %s", exc)
+            logger.error(f"Polling error: {exc}", exc_info=True)
 
 
 # ── App factory ─────────────────────────────────────────────────────
@@ -81,6 +84,21 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request, call_next):
+    """Log all HTTP requests for debugging"""
+    start = time.time()
+    try:
+        response = await call_next(request)
+        duration = time.time() - start
+        logger.info(f"{request.method} {request.url.path} – {response.status_code} ({duration:.2f}s)")
+        return response
+    except Exception as exc:
+        duration = time.time() - start
+        logger.error(f"{request.method} {request.url.path} – Error: {exc} ({duration:.2f}s)")
+        raise
 
 
 def get_manager() -> ServerManager:
@@ -119,7 +137,10 @@ async def restart_server(server_id: str, mgr: ServerManager = Depends(get_manage
 
 @app.get("/api/servers/{server_id}/status", tags=["Servers"])
 async def server_status(server_id: str, mgr: ServerManager = Depends(get_manager)):
-    return await mgr.check_server_status(server_id)
+    result = await mgr.check_server_status(server_id)
+    if "error" in result:
+        raise HTTPException(status_code=404, detail=result["error"])
+    return result
 
 
 @app.post("/api/refresh", tags=["Dashboard"])
@@ -142,8 +163,19 @@ async def get_config(mgr: ServerManager = Depends(get_manager)):
 @app.post("/api/servers/add", response_model=ActionResponse, tags=["Servers"])
 async def add_server(req: AddServerRequest, mgr: ServerManager = Depends(get_manager)):
     """Add a new server to environment.yml and reload the inventory live."""
-    result = mgr.add_server(req)
-    return result
+    # Validate input
+    is_valid, error_msg = req.is_valid
+    if not is_valid:
+        raise HTTPException(status_code=400, detail=error_msg)
+    try:
+        result = mgr.add_server(req)
+        if not result.success:
+            raise HTTPException(status_code=400, detail=result.message)
+        logger.info(f"Server added: {req.id} ({req.type.value})")
+        return result
+    except Exception as exc:
+        logger.error(f"Failed to add server {req.id}: {exc}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to add server: {str(exc)}")
 
 
 @app.get("/api/sites", tags=["Config"])
@@ -178,6 +210,9 @@ async def update_dmgr(req: UpdateDmgrRequest, mgr: ServerManager = Depends(get_m
 @app.patch("/api/servers/{server_id}/daily-schedule", tags=["Servers"])
 async def set_daily_schedule(server_id: str, req: DailyScheduleRequest,
                              mgr: ServerManager = Depends(get_manager)):
+    # Validate server exists
+    if server_id not in {s.id for s in mgr.get_all_servers()}:
+        raise HTTPException(status_code=404, detail=f"Server '{server_id}' not found")
     """Set a daily start/stop/restart schedule for a server (persistent in YAML)."""
     result = mgr.set_daily_schedule(server_id, req.model_dump())
     if not result.success:

@@ -97,7 +97,11 @@ def get_server_status(server: dict) -> Tuple[str, str]:
 def start_server(server: dict) -> Tuple[bool, str]:
     """SSH to the node and run startServer.sh."""
     if not PARAMIKO_AVAILABLE:
-        return False, "paramiko not installed – cannot manage servers via SSH"
+        return False, "SSH library (paramiko) not installed. Install with: pip install paramiko"
+    
+    host = server.get("host", "")
+    if not host:
+        return False, "Server host not configured"
 
     was_home = server.get("was_home", "/opt/IBM/WebSphere/AppServer")
     profile = server.get("profile_name", "AppSrv01")

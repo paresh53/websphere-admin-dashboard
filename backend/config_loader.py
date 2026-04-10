@@ -42,18 +42,18 @@ def _resolve_env_vars(obj):
     actual environment variable value (key without _env suffix)."""
     if isinstance(obj, dict):
         resolved = {}
-        keys_to_resolve = {k[:-4]: v for k, v in obj.items() if k.endswith("_env")}
         for k, v in obj.items():
             if k.endswith("_env"):
                 # Keep the _env key for reference, add resolved key
                 resolved[k] = v
                 real_key = k[:-4]
-                env_val = os.environ.get(v, "")
-                if not env_val:
-                    logger.warning(
-                        "Environment variable '%s' (for config key '%s') is not set.", v, real_key
-                    )
-                resolved[real_key] = env_val
+                env_val = os.environ.get(v)
+                if env_val is None:
+                    # Critical credentials missing – log warning but mark as suspicious
+                    logger.warning(f"MISSING: Environment variable '{v}' (for '{real_key}') not set")
+                    resolved[real_key] = ""
+                else:
+                    resolved[real_key] = env_val
             else:
                 resolved[k] = _resolve_env_vars(v)
         return resolved

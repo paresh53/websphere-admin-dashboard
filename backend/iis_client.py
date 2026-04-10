@@ -76,18 +76,18 @@ $results -join ','
         if rc == 0:
             output = stdout.strip()
             if "Started" in output:
-                return "running", f"IIS sites: {output}"
+                return "running", f"IIS sites: {output[:80]}"
             if "Stopped" in output:
-                return "stopped", f"IIS sites: {output}"
-            return "unknown", f"IIS state: {output}"
-        return "unknown", f"WinRM rc={rc}: {stderr[:200]}"
+                return "stopped", f"IIS sites: {output[:80]}"
+            return "unknown", f"IIS state: {output[:80]}"
+        return "unknown", f"WinRM error (code {rc}): {stderr[:100]}"
     except Exception as exc:
-        logger.warning("IIS WinRM check failed for %s: %s", server.get("host"), exc)
+        logger.warning(f"IIS WinRM check failed for {server.get('host')}: {exc}")
         # TCP fallback
         host = server.get("host", "")
         if check_port(host, 80) or check_port(host, 443):
-            return "running", f"WinRM failed ({exc}); TCP port open"
-        return "unknown", f"WinRM error: {exc}"
+            return "running", "TCP ports open (WinRM failed)"
+        return "unknown", f"Connection failed: {str(exc)[:80]}"
 
 
 def start_server(server: dict) -> Tuple[bool, str]:

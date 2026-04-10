@@ -1,7 +1,7 @@
 # ─────────────────────────────────────────────
 #  Pydantic data models for the dashboard API
 # ─────────────────────────────────────────────
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List, Any
 from enum import Enum
 
@@ -73,6 +73,52 @@ class DashboardStatus(BaseModel):
     is_first_run: bool = False
 
 
+class AddServerRequest(BaseModel):
+    """Request model for adding a new server"""
+    id: str
+    name: str
+    type: ServerType
+    site_id: str
+    host: str
+    http_port: int = 9080
+    https_port: int = 9443
+    user_added: bool = True
+    # WAS fields
+    server_name: Optional[str] = None
+    node_name: Optional[str] = None
+    cluster_id: Optional[str] = None
+    was_home: Optional[str] = '/opt/IBM/WebSphere/AppServer'
+    profile_name: Optional[str] = 'AppSrv01'
+    ssh_username: Optional[str] = 'wasadmin'
+    ssh_key_env: Optional[str] = 'WAS_SSH_KEY_PATH'
+    admin_username: Optional[str] = 'wsadmin'
+    admin_password_env: Optional[str] = 'DMGR_PASSWORD'
+    admin_url: Optional[str] = None
+    # IIS fields
+    winrm_port: int = 5985
+    winrm_use_ssl: bool = False
+    winrm_username: Optional[str] = None
+    winrm_password_env: Optional[str] = None
+    # Validation
+    @property
+    def is_valid(self) -> tuple[bool, str]:
+        """Validate required fields"""
+        if not self.id or not self.id.strip():
+            return False, "Server ID is required"
+        if not self.name or not self.name.strip():
+            return False, "Server name is required"
+        if not self.host or not self.host.strip():
+            return False, "Server host/IP is required"
+        if not self.site_id or not self.site_id.strip():
+            return False, "Site ID is required"
+        if self.type == ServerType.IIS:
+            if not self.winrm_username or not self.winrm_username.strip():
+                return False, "WinRM username is required for IIS servers"
+            if not self.winrm_password_env or not self.winrm_password_env.strip():
+                return False, "WinRM password environment variable is required for IIS servers"
+        return True, ""
+
+
 class ActionResponse(BaseModel):
     success: bool
     message: str
@@ -83,6 +129,13 @@ class ActionResponse(BaseModel):
 class SimulationToggleRequest(BaseModel):
     """Payload for PATCH /api/settings/simulation"""
     enabled: bool
+
+
+class DailyScheduleRequest(BaseModel):
+    """Payload for PATCH /api/servers/{id}/daily-schedule"""
+    enabled: bool
+    action: Optional[str] = None
+    time: Optional[str] = None
 
 
 class UpdateDmgrRequest(BaseModel):

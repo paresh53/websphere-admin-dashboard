@@ -53,10 +53,20 @@ export default function AddServerModal({ onClose, onAdded, sites: propSites, pre
   const [newClusterMode, setNewClusterMode] = useState(false)
   const [newClusterId, setNewClusterId] = useState('')
 
-  // Load sites + clusters from backend
+  // Load sites + clusters from backend with proper error handling
   useEffect(() => {
-    fetchSites().then(setSites).catch(() => {})
-    fetchClusterList().then(setClusters).catch(() => {})
+    fetchSites()
+      .then(setSites)
+      .catch(err => {
+        console.warn('Failed to load sites:', err.message)
+        // Continue with empty sites list; defaults to 'primary' if available
+      })
+    fetchClusterList()
+      .then(setClusters)
+      .catch(err => {
+        console.warn('Failed to load clusters:', err.message)
+        // Continue with empty clusters list
+      })
   }, [])
 
   const set = (field, value) => {

@@ -42,7 +42,12 @@ export default function App() {
       setLogs(logData)
       setError(null)
     } catch (err) {
-      setError('Cannot reach backend. Is the server running on port 8000?')
+      const errMsg = err.status === 503 
+        ? 'Backend is starting up. Please wait...'
+        : err.status === 0
+        ? 'Cannot reach backend (check if server is running on port 8000)'
+        : `Backend error: ${err.message}`
+      setError(errMsg)
     } finally {
       setLoading(false)
     }
@@ -61,8 +66,8 @@ export default function App() {
   }
 
   const showToast = ({ type, message }) => {
-    setToast({ type, message })
-    setTimeout(() => setToast(null), 4000)
+    setToast({ type, message, timestamp: Date.now() })
+    setTimeout(() => setToast(null), 5000)
   }
 
   return (

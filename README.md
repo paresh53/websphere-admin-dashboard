@@ -7,25 +7,39 @@
 
 ---
 
+## 🚀 Quick Start for Business Users
+
+**👉 [Configuration Guide](CONFIG_GUIDE.md)** - How to set up servers (business users start here)  
+**👉 [Deployment Guide](DEPLOYMENT_GUIDE.md)** - How to build and deploy  
+
+
+### Three Deployment Options:
+
+| Option | Best For | Setup Time | Deployment |
+|--------|----------|-----------|-----------|
+| **Windows EXE** | Quick setup, single file | 5 minutes | `BUILD_EXE.bat` → run `.exe` |
+| **Java WAR** | Enterprise, WebSphere/Tomcat | 10 minutes | `BUILD_WAR.bat` → deploy to app server |
+| **Python Backend** | Linux/Mac, dev environments | 15 minutes | `pip install` → `python main.py` |
+
+**All options include all dependencies - nothing extra to install at the deployment site!**
+
+---
+
 ## Operator Quick Start (Config Only)
 
 Use this checklist if you are an operator/admin and do not write code.
 
-1. Use the standalone EXE or Windows Service path for target servers.
+1. Use the standalone EXE or WAR format for target servers.
 2. Do not install Python, Node.js, or Java on the target server.
-3. Get the prepared bundle (`was-dashboard-windows.zip`) from maintainer release artifacts.
-4. On target server, either:
-  - Run `dist\was-dashboard\was-dashboard.exe`, or
-  - Run `deploy-service.bat "C:\Deploy\was-dashboard"` as Administrator.
-5. Open `http://localhost:8000`.
-6. Change only these files when needed:
-  - `config\environment.yml`
-  - `backend\.env`
-7. Add servers/clusters from the UI using `+ Add` and `+ New Cluster`.
-8. Do not edit source code under:
-  - `backend\` (except `backend\.env`)
-  - `frontend\`
-  - `java\`
+3. Get the built artifact from releases:
+  - `was-dashboard.exe` (Windows), or
+  - `was-dashboard.war` (Any Java container)
+4. Run the executable or deploy the WAR.
+5. Open `http://localhost:8000` (or configured port).
+6. Configure only via the **single config file**:
+  - `config/environment.yml`
+7. Add servers from the UI using `+ Add Server` button.
+8. **Do NOT edit source code** - use config file only!
 
 ---
 
@@ -34,17 +48,16 @@ Use this checklist if you are an operator/admin and do not write code.
 1. [What This Tool Does](#1-what-this-tool-does)
 2. [Who Is It For](#2-who-is-it-for)
 3. [Prerequisites](#3-prerequisites)
-4. [Installation and First Run](#4-installation-and-first-run)
-5. [Configuring Your Environment](#5-configuring-your-environment)
+4. [Quick Deploy](#4-quick-deploy)
+5. [Configuration Reference](#5-configuration-reference)
 6. [Running the Dashboard](#6-running-the-dashboard)
 7. [Using the Dashboard UI](#7-using-the-dashboard-ui)
-8. [Build Formats – APP, JAR, WAR, EXE, Docker](#8-build-formats)
-9. [Configuration Reference](#9-configuration-reference)
-10. [Setting Up Real Server Connectivity](#10-setting-up-real-server-connectivity)
-11. [API Reference](#11-api-reference)
-12. [Troubleshooting](#12-troubleshooting)
-13. [Security Best Practices](#13-security-best-practices)
-14. [Project Structure](#14-project-structure)
+8. [Build Formats – EXE, WAR, JAR](#8-build-formats)
+9. [Setting Up Real Server Connectivity](#9-setting-up-real-server-connectivity)
+10. [API Reference](#10-api-reference)
+11. [Troubleshooting](#11-troubleshooting)
+12. [Security Best Practices](#12-security-best-practices)
+13. [Project Structure](#13-project-structure)
 
 ---
 

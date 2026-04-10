@@ -96,18 +96,32 @@
   <build>
     <finalName>was-dashboard</finalName>
     <plugins>
-      <!-- Spring Boot fat JAR / WAR repackaging -->
+      <!-- Build React frontend automatically during Maven build -->
       <plugin>
-        <groupId>org.springframework.boot</groupId>
-        <artifactId>spring-boot-maven-plugin</artifactId>
-        <configuration>
-          <excludes>
-            <exclude>
-              <groupId>org.projectlombok</groupId>
-              <artifactId>lombok</artifactId>
-            </exclude>
-          </excludes>
-        </configuration>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-antrun-plugin</artifactId>
+        <version>1.8</version>
+        <executions>
+          <execution>
+            <id>build-react</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>run</goal>
+            </goals>
+            <configuration>
+              <target>
+                <echo message="Building React frontend..." />
+                <exec executable="npm" dir="${project.basedir}/../frontend" failonerror="false">
+                  <arg value="install" />
+                </exec>
+                <exec executable="npm" dir="${project.basedir}/../frontend" failonerror="false">
+                  <arg value="run" />
+                  <arg value="build" />
+                </exec>
+              </target>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
 
       <!-- Copy React build into static resources before compiling -->
@@ -125,11 +139,28 @@
                 <resource>
                   <directory>${project.basedir}/../frontend/dist</directory>
                   <filtering>false</filtering>
+                  <excludes>
+                    <exclude>*.map</exclude>
+                  </excludes>
                 </resource>
               </resources>
             </configuration>
           </execution>
         </executions>
+      </plugin>
+
+      <!-- Spring Boot fat JAR / WAR repackaging -->
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <excludes>
+            <exclude>
+              <groupId>org.projectlombok</groupId>
+              <artifactId>lombok</artifactId>
+            </exclude>
+          </excludes>
+        </configuration>
       </plugin>
     </plugins>
   </build>
